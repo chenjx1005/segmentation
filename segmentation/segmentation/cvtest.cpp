@@ -9,7 +9,8 @@ using namespace std;
 
 const double ALPHA = 1;
 const int Q = 256;
-const double T = 1.3806488e+5, MIN_T = 1;
+const int STEP = 4;
+const double T = 1.3806488e+8, MIN_T = 1;
 const double A_C = 0.553;
 const double K = 1.3806488e-4;//Boltzmann constant
 
@@ -41,13 +42,14 @@ int main(int, char**)
 	double t = T;
 	while(t > MIN_T)
 	{
+		printf("t is %lf\n", t);
 		for(int i = 0; i < img.rows; i++)
 			for(int j = 0; j < img.cols; j++)
 			{
 				int s = states[i][j];
 				double min_e = 100000000;
 				int min_m = 0;
-				for(int m = 0; m < Q; m++)
+				for(int m = 0; m < Q; m += 4)
 				{
 					if(s == m) continue;
 					states[i][j] = m;
@@ -98,7 +100,7 @@ void ShowResult(const vector<vector<int>> &states)
 	cvtColor(hsv, result, CV_HSV2BGR);
 	imwrite("result.jpg", result);
 	imshow("show", result);
-	waitKey(5000);
+	waitKey(5);
 }
 
 double MeanDiff(const Mat &img)
@@ -156,7 +158,7 @@ double MeanDiff(const Mat &img)
 		}
 	}
 	//left diagonal diff
-	for(int n = -1*h+1; n < w-1; n++)
+	for(int n = -1*h+2; n < w-1; n++)
 	{
 		Mat d = img.diag(n);
 		const Vec3b *p = d.ptr<Vec3b>(0);
@@ -164,7 +166,7 @@ double MeanDiff(const Mat &img)
 		for(int j = 1; j < d.rows; j++)
 		{
 			count++;
-			gj = p[j];
+			gj = *d.ptr<Vec3b>(j);
 			sum += norm(Vec3s(gi) - Vec3s(gj));
 			gi = gj;
 		}
