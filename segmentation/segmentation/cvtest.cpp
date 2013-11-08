@@ -8,24 +8,97 @@ using namespace cv;
 using namespace std;
 
 const double ALPHA = 1;
+const int Q = 256;
+const double T = 1.3806488e+5, MIN_T = 1;
+const double A_C = 0.553;
+const double K = 1.3806488e-4;//Boltzmann constant
 
 double g_meandiff; 
 
 double PixelEnergy(const Mat &, int, int, const vector<vector<int>> &, double mean = g_meandiff);
 double SumEnergy(const Mat &);
 double MeanDiff(const Mat &);
+void ShowResult(const vector<vector<int>> &);
 
 int main(int, char**)
 {
-	RNG r;
-	for(int i = 0; i < 10; i++) printf("%d ", r.next()%100);
 	namedWindow("show");
-	Mat img = imread("lena.jpg");
-	Mat m = (Mat_<Vec3b>(2,2) << Vec3b(1,0,0), Vec3b(0,1,0), Vec3b(0,0,1), Vec3b(0,0,0));
+	Mat img = imread("demo.jpg");
+	//compute mean difference and initialize the spin states
 	g_meandiff =  MeanDiff(img);
-	vector<vector<int>> states(2,vector<int>(2,1));
-	double e = PixelEnergy(m,0,1,states);
+	vector<vector<int>> states(img.rows, vector<int>(img.cols));
+	RNG r;
+	for(int i = 0; i < img.rows; i++)
+		for(int j = 0; j < img.cols; j++)
+			states[i][j] = r.next() % Q;
+	ShowResult(states);
+	//initialize the energy matrix
+	vector<vector<double>> energy(img.rows, vector<double>(img.cols));
+	for(int i = 0; i < img.rows; i++)
+		for(int j = 0; j < img.cols; j++)
+			energy[i][j] = PixelEnergy(img, i, j, states);
+	//Metropolis algorithm
+	double t = T;
+	while(t > MIN_T)
+	{
+		for(int i = 0; i < img.rows; i++)
+			for(int j = 0; j < img.cols; j++)
+			{
+				int s = states[i][j];
+				double min_e = 100000000;
+				int min_m = 0;
+				for(int m = 0; m < Q; m++)
+				{
+					if(s == m) continue;
+					states[i][j] = m;
+					double e_i = PixelEnergy(img, i, j, states);
+					if(e_i < min_e)
+					{
+						min_e = e_i;
+						min_m = m;
+					}
+				}
+				double diff_e = min_e - energy[i][j];
+				double p = exp(-1 * abs(diff_e) / (t * K));
+				double y = (double)(r.next()%1000) / 1000.0;
+				if(diff_e < 0 || y < p)
+				{
+					//if(diff_e > 0) printf("t is %lf move is accepted and diff_e is %lf\n", t, diff_e);
+					states[i][j] = min_m;
+					energy[i][j] = min_e;
+				}
+				else 
+				{
+					//printf("!!move is not accepted and diff_e is %lf\n", diff_e);
+					states[i][j] = s;
+				}
+			}
+			ShowResult(states);
+			t *= A_C;
+	}
+	//output the states
+	
     return 0;
+}
+
+void ShowResult(const vector<vector<int>> &states)
+{
+	int rows = states.size();
+	int cols = states[0].size();
+	Mat hsv(rows, cols, CV_8UC3);
+	MatIterator_<Vec3b> it = hsv.begin<Vec3b>(), end = hsv.end<Vec3b>();
+	for(int i = 0; i < rows; i++)
+		for(int j = 0; j < cols; j++)
+		{
+			Vec3b c(states[i][j], 255, 255);
+			(*it) = c;
+			it++;
+		}
+	Mat result;
+	cvtColor(hsv, result, CV_HSV2BGR);
+	imwrite("result.jpg", result);
+	imshow("show", result);
+	waitKey(5000);
 }
 
 double MeanDiff(const Mat &img)
