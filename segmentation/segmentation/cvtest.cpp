@@ -8,52 +8,57 @@ using namespace cv;
 using namespace std;
 
 const double ALPHA = 1;
-const int Q = 256;
-const int STEP = 4;
+const int Q = 128;
+const int STEP = 1;
 const double T = 1.3806488e+8, MIN_T = 1;
 const double A_C = 0.553;
 const double K = 1.3806488e-4;//Boltzmann constant
 
 double g_meandiff; 
 
-double PixelEnergy(const Mat &, int, int, const vector<vector<int>> &, double mean = g_meandiff);
+double PixelEnergy(const Mat &, const Mat &, int, int, const vector<vector<int>> &, double mean = g_meandiff);
 double SumEnergy(const Mat &);
 double MeanDiff(const Mat &);
 void ShowResult(const vector<vector<int>> &);
+double HSVNorm(const Mat &, Mat &);
 
 int main(int, char**)
 {
 	namedWindow("show");
-	Mat img = imread("demo.jpg");
-	//compute mean difference and initialize the spin states
+	Mat img = imread("Color0.png");
+	Mat depth, fusion;
+	cvtColor(imread("Depth0.png"), depth, CV_BGR2GRAY);
+	cvtColor(imread("Fusion0.png"), fusion, CV_BGR2GRAY);
+	//compute mean difference
 	g_meandiff =  MeanDiff(img);
+	//initialize the spin states
 	vector<vector<int>> states(img.rows, vector<int>(img.cols));
 	RNG r;
 	for(int i = 0; i < img.rows; i++)
 		for(int j = 0; j < img.cols; j++)
-			states[i][j] = r.next() % Q;
+			states[i][j] = fusion.at<char>(i, j);
 	ShowResult(states);
 	//initialize the energy matrix
 	vector<vector<double>> energy(img.rows, vector<double>(img.cols));
 	for(int i = 0; i < img.rows; i++)
 		for(int j = 0; j < img.cols; j++)
-			energy[i][j] = PixelEnergy(img, i, j, states);
+			energy[i][j] = PixelEnergy(img, depth, i, j, states);
 	//Metropolis algorithm
 	double t = T;
 	while(t > MIN_T)
-	{
-		printf("t is %lf\n", t);
+	{		
 		for(int i = 0; i < img.rows; i++)
+		{
 			for(int j = 0; j < img.cols; j++)
 			{
 				int s = states[i][j];
 				double min_e = 100000000;
 				int min_m = 0;
-				for(int m = 0; m < Q; m += 4)
+				for(int m = 0; m < Q; m += STEP)
 				{
 					if(s == m) continue;
 					states[i][j] = m;
-					double e_i = PixelEnergy(img, i, j, states);
+					double e_i = PixelEnergy(img, depth, i, j, states);
 					if(e_i < min_e)
 					{
 						min_e = e_i;
@@ -75,8 +80,10 @@ int main(int, char**)
 					states[i][j] = s;
 				}
 			}
-			ShowResult(states);
-			t *= A_C;
+			printf("t is %lf, row %d is finished\n", t, i);
+		}
+		ShowResult(states);
+		t *= A_C;
 	}
 	//output the states
 	
@@ -100,7 +107,7 @@ void ShowResult(const vector<vector<int>> &states)
 	cvtColor(hsv, result, CV_HSV2BGR);
 	imwrite("result.jpg", result);
 	imshow("show", result);
-	waitKey(5);
+	waitKey(5000);
 }
 
 double MeanDiff(const Mat &img)
@@ -175,7 +182,8 @@ double MeanDiff(const Mat &img)
 	return ALPHA * sum / count;
 }
 
-double PixelEnergy(const Mat &img,
+double PixelEnergy(const Mat &img, 
+				   const Mat &depth,
 				   int pi,
 				   int pj,
 				   const vector<vector<int>> &spin,
@@ -183,6 +191,8 @@ double PixelEnergy(const Mat &img,
 {
 	int ki,kj;
 	double Jij, energy = 0;
+	int dp = depth.at<char>(pi, pj);
+	int dk;
 	for(int i = -1; i <= 1; i++)
 		for(int j = -1; j <= 1; j++)
 		{
@@ -190,10 +200,19 @@ double PixelEnergy(const Mat &img,
 			ki = pi + i;
 			kj = pj + j;
 			if(ki < 0 || ki >= img.rows || kj < 0 || kj >= img.cols) continue;
-			Jij = norm(Vec3s(img.at<Vec3b>(pi,pj)) - Vec3s(img.at<Vec3b>(ki,kj))) / mean - 1;
+			dk = depth.at<char>(ki,kj);
+			if(30 < abs(dk - dp))
+				Jij = 250;
+			else
+				Jij = norm(Vec3s(img.at<Vec3b>(pi,pj)) - Vec3s(img.at<Vec3b>(ki,kj))) / mean - 1;
 			energy += Jij * (spin[pi][pj] == spin[ki][kj]);
 		}
 	return energy;
+}
+
+double HSVNorm(const Mat &src, Mat &dst)
+{
+	return 0;
 }
 
 double SumEnergy(const IplImage &img)
