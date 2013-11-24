@@ -112,7 +112,7 @@ void ShowResult(const vector<vector<int>> &states)
 	for(int i = 0; i < rows; i++)
 		for(int j = 0; j < cols; j++)
 		{
-			Vec3b c(states[i][j], 255, 255);
+			Vec3b c(uchar(states[i][j] * 0.6), 255, 255);
 			(*it) = c;
 			it++;
 		}
