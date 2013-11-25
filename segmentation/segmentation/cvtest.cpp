@@ -12,7 +12,7 @@ typedef Vec<double, 8> Vec8d;
 const double ALPHA = 1;
 const int Q = 256;
 const int STEP = 1;
-const double T = 1.3806488e+8, MIN_T = 1;
+const double T = 1.3806488e+6, MIN_T = 1;
 const double A_C = 0.553;
 const double K = 1.3806488e-4;//Boltzmann constant
 const int PIXEL[3][3] = {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}};
@@ -36,9 +36,9 @@ int main(int, char**)
 	uchar c = a-b;
 	cout<< c << endl;
 	*/
-	Mat img = imread("Color0.png");
+	Mat img = imread("Color02.png");
 	Mat depth, fusion, diff;
-	cvtColor(imread("Depth0.png"), depth, CV_BGR2GRAY);
+	cvtColor(imread("Depth02.png"), depth, CV_BGR2GRAY);
 	cvtColor(imread("Fusion0.png"), fusion, CV_BGR2GRAY);
 	//compute mean difference and difference map
 	g_meandiff =  DifferenceMap(img, diff , 1);
@@ -58,15 +58,16 @@ int main(int, char**)
 			energy[i][j] = PixelEnergy(diff, i, j, states);
 	//Metropolis algorithm
 	double t = T;
+	vector<int> min_sequence;
 	while(t > MIN_T)
-	{		
+	{	
 		for(int i = 0; i < img.rows; i++)
 		{
 			for(int j = 0; j < img.cols; j++)
 			{
+				min_sequence.clear();
 				int s = states[i][j];
 				double min_e = 100000000;
-				int min_m = 0;
 				for(int m = 0; m < Q; m += STEP)
 				{
 					if(s == m) continue;
@@ -74,17 +75,20 @@ int main(int, char**)
 					double e_i = PixelEnergy(diff, i, j, states);
 					if(e_i < min_e)
 					{
+						min_sequence.clear();
+						min_sequence.push_back(m);
 						min_e = e_i;
-						min_m = m;
 					}
+					else if(e_i == min_e) min_sequence.push_back(m);
 				}
 				double diff_e = min_e - energy[i][j];
 				double p = exp(-1 * abs(diff_e) / (t * K));
-				double y = (double)(r.next()%1000) / 1000.0;
+				double y = (double)(r.next() % 1000) / 1000.0;
 				if(diff_e < 0 || y < p)
 				{
 					//if(diff_e > 0) printf("t is %lf move is accepted and diff_e is %lf\n", t, diff_e);
-					states[i][j] = min_m;
+					int p = r.next() % min_sequence.size();
+					states[i][j] = min_sequence[p];
 					energy[i][j] = min_e;
 				}
 				else 
@@ -150,7 +154,7 @@ double HSVNorm(const Vec3b &a, const Vec3b &b)
 	Vec3d bd = Vec3d(b[1] * b[2] / 65025.0 * cos(double(b[0] * 2)), 
 					 b[1] * b[2] / 65025.0 * sin(double(b[0] * 2)),
 					 b[2] / 255.0);
-	return 0;
+	return norm(ad - bd);
 }
 
 void DifferenceDepth(const Mat &depth, Mat &dst)
@@ -249,7 +253,7 @@ double DifferenceMap(const Mat &src, Mat &dst, int code)
 		{
 			count++;
 			gj = p[j];
-			double diff = norm(Vec3s(gi) - Vec3s(gj));
+			double diff = HSVNorm(gi, gj);
 			sum += diff;
 			dst.at<double>(i, j-1, 1) = dst.at<double>(i, j, 0) = diff;
 			gi = gj;
@@ -263,7 +267,7 @@ double DifferenceMap(const Mat &src, Mat &dst, int code)
 		{
 			count++;
 			gj = src.at<Vec3b>(i, j);
-			double diff = norm(Vec3s(gi) - Vec3s(gj));
+			double diff = HSVNorm(gi, gj);
 			sum += diff;
 			dst.at<double>(i-1, j, 3) = dst.at<double>(i, j, 2) = diff;
 			gi = gj;
@@ -283,7 +287,7 @@ double DifferenceMap(const Mat &src, Mat &dst, int code)
 				else 
 				{
 					count++;
-					double diff = norm(Vec3s(gi) - Vec3s(gj));
+					double diff = HSVNorm(gi, gj);
 					sum += diff;
 					dst.at<double>(i-1, d - i + 1, 7) = dst.at<double>(i, j, 6) = diff;
 				}
@@ -304,7 +308,7 @@ double DifferenceMap(const Mat &src, Mat &dst, int code)
 		{
 			count++;
 			gj = *d.ptr<Vec3b>(j);
-			double diff = norm(Vec3s(gi) - Vec3s(gj));
+			double diff = HSVNorm(gi, gj);
 			sum += diff;
 			dst.at<double>(pi + j - 1, pj + j - 1, 5) = dst.at<double>(pi + j, pj + j, 4) = diff;
 			gi = gj;
