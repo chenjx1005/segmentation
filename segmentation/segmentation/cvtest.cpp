@@ -12,13 +12,14 @@ typedef Vec<double, 8> Vec8d;
 const double ALPHA = 1;
 const int Q = 256;
 const int STEP = 1;
-const double T = 1.3806488e+6, MIN_T = 1;
-const double A_C = 0.553;
+const double T = 1.3806488e+7, MIN_T = 1e-7;
+const double A_C = 0.33;
 const double K = 1.3806488e-4;//Boltzmann constant
 const int PIXEL[3][3] = {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}};
 const int MAX_J = 250;
 
 double g_meandiff; 
+int g_result_time = 0;
 
 double PixelEnergy(const Mat &, int, int, const vector<vector<int>> &);
 double SumEnergy(const Mat &);
@@ -37,9 +38,8 @@ int main(int, char**)
 	cout<< c << endl;
 	*/
 	Mat img = imread("Color02.png");
-	Mat depth, fusion, diff;
+	Mat depth, diff;
 	cvtColor(imread("Depth02.png"), depth, CV_BGR2GRAY);
-	cvtColor(imread("Fusion0.png"), fusion, CV_BGR2GRAY);
 	//compute mean difference and difference map
 	g_meandiff =  DifferenceMap(img, diff , 1);
 	diff = diff * (1 / g_meandiff) - 1;
@@ -51,22 +51,21 @@ int main(int, char**)
 		for(int j = 0; j < img.cols; j++)
 			states[i][j] = depth.at<char>(i, j);
 	ShowResult(states);
-	//initialize the energy matrix
-	vector<vector<double>> energy(img.rows, vector<double>(img.cols));
-	for(int i = 0; i < img.rows; i++)
-		for(int j = 0; j < img.cols; j++)
-			energy[i][j] = PixelEnergy(diff, i, j, states);
 	//Metropolis algorithm
 	double t = T;
 	vector<int> min_sequence;
-	while(t > MIN_T)
+	while(1)
 	{	
+		int a_count = 0;
+		int r_count = 0;
+		int d_count = 0;
 		for(int i = 0; i < img.rows; i++)
 		{
 			for(int j = 0; j < img.cols; j++)
 			{
 				min_sequence.clear();
 				int s = states[i][j];
+				double e = PixelEnergy(diff, i, j, states);
 				double min_e = 100000000;
 				for(int m = 0; m < Q; m += STEP)
 				{
@@ -81,25 +80,28 @@ int main(int, char**)
 					}
 					else if(e_i == min_e) min_sequence.push_back(m);
 				}
-				double diff_e = min_e - energy[i][j];
+				double diff_e = min_e - e;
 				double p = exp(-1 * abs(diff_e) / (t * K));
 				double y = (double)(r.next() % 1000) / 1000.0;
-				if(diff_e < 0 || y < p)
+				if(diff_e <= 0 || y < p)
 				{
-					//if(diff_e > 0) printf("t is %lf move is accepted and diff_e is %lf\n", t, diff_e);
+					if(diff_e > 0) //printf("t is %lf move is accepted and diff_e is %lf\n", t, diff_e);
+						a_count++;
+					else d_count++;
 					int p = r.next() % min_sequence.size();
 					states[i][j] = min_sequence[p];
-					energy[i][j] = min_e;
 				}
 				else 
 				{
 					//printf("!!move is not accepted and diff_e is %lf\n", diff_e);
+					r_count++;
 					states[i][j] = s;
 				}
 			}
 			printf("t is %lf, row %d is finished\n", t, i);
 		}
-		ShowResult(states);
+		printf("%d is accepted, %d is refused, %d is decreased\n", a_count, r_count, d_count);
+		ShowResult(states);	
 		t *= A_C;
 	}
 	//output the states
@@ -122,7 +124,12 @@ void ShowResult(const vector<vector<int>> &states)
 		}
 	Mat result;
 	cvtColor(hsv, result, CV_HSV2BGR);
-	imwrite("result.jpg", result);
+	string s = "result";
+	char cs[4];
+	itoa(g_result_time++, cs, 10);
+	s += cs;
+	s += ".jpg";
+	imwrite(s, result);
 	imshow("show", result);
 	waitKey(5000);
 }
@@ -253,7 +260,7 @@ double DifferenceMap(const Mat &src, Mat &dst, int code)
 		{
 			count++;
 			gj = p[j];
-			double diff = HSVNorm(gi, gj);
+			double diff = norm(Vec3s(gi) - Vec3s(gj));
 			sum += diff;
 			dst.at<double>(i, j-1, 1) = dst.at<double>(i, j, 0) = diff;
 			gi = gj;
@@ -267,7 +274,7 @@ double DifferenceMap(const Mat &src, Mat &dst, int code)
 		{
 			count++;
 			gj = src.at<Vec3b>(i, j);
-			double diff = HSVNorm(gi, gj);
+			double diff = norm(Vec3s(gi) - Vec3s(gj));
 			sum += diff;
 			dst.at<double>(i-1, j, 3) = dst.at<double>(i, j, 2) = diff;
 			gi = gj;
@@ -287,7 +294,7 @@ double DifferenceMap(const Mat &src, Mat &dst, int code)
 				else 
 				{
 					count++;
-					double diff = HSVNorm(gi, gj);
+					double diff = norm(Vec3s(gi) - Vec3s(gj));
 					sum += diff;
 					dst.at<double>(i-1, d - i + 1, 7) = dst.at<double>(i, j, 6) = diff;
 				}
@@ -308,7 +315,7 @@ double DifferenceMap(const Mat &src, Mat &dst, int code)
 		{
 			count++;
 			gj = *d.ptr<Vec3b>(j);
-			double diff = HSVNorm(gi, gj);
+			double diff = norm(Vec3s(gi) - Vec3s(gj));
 			sum += diff;
 			dst.at<double>(pi + j - 1, pj + j - 1, 5) = dst.at<double>(pi + j, pj + j, 4) = diff;
 			gi = gj;
