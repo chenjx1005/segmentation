@@ -12,7 +12,7 @@ typedef Vec<double, 8> Vec8d;
 const double ALPHA = 1;
 const int Q = 256;
 const int STEP = 1;
-const double T = 1.3806488e+7, MIN_T = 1e-7;
+const double T = 1.3806488e+7, MIN_T = 0.1;
 const double A_C = 0.33;
 const double K = 1.3806488e-4;//Boltzmann constant
 const int PIXEL[3][3] = {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}};
@@ -32,14 +32,17 @@ int main(int, char**)
 {
 	namedWindow("show");
 	/*test
-	uchar a = 123;
-	uchar b = 245;
-	uchar c = a-b;
-	cout<< c << endl;
+	vector<vector<uchar>> test(50, vector<uchar>(50));
+	Mat tm(test.size(), test[0].size(), CV_8U);
+	for(int i=0; i<tm.rows; ++i)
+     for(int j=0; j<tm.cols; ++j)
+          tm.at<uchar>(i, j) = test.at(i).at(j);
+	imshow("show", tm);
+	waitKey(0);
 	*/
-	Mat img = imread("Color02.png");
+	Mat img = imread("apple.jpg");
 	Mat depth, diff;
-	cvtColor(imread("Depth02.png"), depth, CV_BGR2GRAY);
+	cvtColor(imread("apple_d.jpg"), depth, CV_BGR2GRAY);
 	//compute mean difference and difference map
 	g_meandiff =  DifferenceMap(img, diff , 1);
 	diff = diff * (1 / g_meandiff) - 1;
@@ -54,7 +57,7 @@ int main(int, char**)
 	//Metropolis algorithm
 	double t = T;
 	vector<int> min_sequence;
-	while(1)
+	while(t > MIN_T)
 	{	
 		int a_count = 0;
 		int r_count = 0;
@@ -105,7 +108,41 @@ int main(int, char**)
 		t *= A_C;
 	}
 	//output the states
-	
+	//find boundaries
+	vector<vector<uchar>> boundry(img.rows, vector<uchar>(img.cols,255));
+	for(int i = 0; i < img.rows; i++)
+	{
+		int flag = 0;
+		for(int j = 1; j < img.cols; j++)
+		{
+			if(states[i][j] != states[i][j-1])
+			{
+				if(flag) boundry[i][j] = 0;
+				else flag = 1;
+			}
+			else flag = 0;
+		}
+	}
+	for(int i = 0; i < img.cols; i++)
+	{
+		int flag = 0;
+		for(int j = 1; j < img.rows; j++)
+		{
+			if(states[j][i] != states[j-1][i])
+			{
+				if(flag) boundry[j][i] = 0;
+				else flag = 1;
+			}
+			else flag = 0;
+		}
+	}
+	Mat tm(boundry.size(), boundry[0].size(), CV_8U);
+	for(int i=0; i<tm.rows; ++i)
+     for(int j=0; j<tm.cols; ++j)
+          tm.at<uchar>(i, j) = boundry.at(i).at(j);
+	imshow("show", tm);
+	imwrite("boundry.jpg", tm);
+	waitKey(0);
     return 0;
 }
 
