@@ -1,33 +1,41 @@
 #include <stdio.h>
 #include <cmath>
+#include <algorithm>
 #include <vector>
+#include <list>
 #include "cv.h"
 #include "highgui.h"
 
 #include "PottsModel.hpp"
+#include "FastLabel.hpp"
 
 using namespace cv;
 using namespace std;
 
 double HSVNorm(const Vec3b &, const Vec3b &);
 
-const int PottsModel::kPixel[3][3] = {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}};
-
 int main(int, char**)
 {
+	Mat b;
+	cvtColor(imread("boundry.jpg"), b, CV_BGR2GRAY);
+	FastLabel f(b);
+	f.FirstScan();
+	f.SecondScan();
+
 	Mat img = imread("Color01.png");
 	Mat depth;
 	cvtColor(imread("Depth01.png"), depth, CV_BGR2GRAY);
 	
 	PottsModel potts_model(img, depth);
-	while (potts_model.Iterable()){
+	while (potts_model.iterable()){
 		potts_model.MetropolisOnce();
 		potts_model.SaveStates();
 	}
 	potts_model.GenBoundry();
 	potts_model.ShowBoundry(5000);
 	potts_model.SaveBoundry();
-	//find boundaries
+	Mat boundry = potts_model.get_boundrymap();
+
     return 0;
 }
 

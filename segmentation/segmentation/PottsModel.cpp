@@ -11,7 +11,8 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth)
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(depth),
 	boundry_(color.rows, color.cols, CV_8U, Scalar::all(255)),
-	states_(color.rows, vector<int>(color.cols))
+	states_(color.rows, vector<int>(color.cols)),
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5)
 {
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
@@ -167,7 +168,7 @@ double PottsModel::PixelEnergy(int pi, int pj) const
 			ki = pi + i;
 			kj = pj + j;
 			if(ki < 0 || ki >= diff_.size[0] || kj < 0 || kj >= diff_.size[1]) continue;
-			energy += diff_.at<double>(pi, pj, kPixel[i + 1][j + 1]) * (states_[pi][pj] == states_[ki][kj]);
+			energy += diff_.at<double>(pi, pj, kPixel(i + 1, j + 1)) * (states_[pi][pj] == states_[ki][kj]);
 		}
 	return energy;
 }

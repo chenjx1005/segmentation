@@ -7,16 +7,17 @@ using namespace std;
 using namespace cv;
 
 typedef Vec<double, 8> Vec8d;
+typedef Matx<int, 3, 3> Matx33i;
 
 class PottsModel
 {
 public:
-	PottsModel(const Mat &color, const Mat &depth);
+    PottsModel(const Mat &color, const Mat &depth);
 	virtual ~PottsModel();
 	void ComputeDifference();
 	double PixelEnergy(int pi, int pj) const;
 	void MetropolisOnce();
-	bool Iterable() const { return t_ >= min_t_; }
+	bool iterable() const { return t_ >= min_t_; }
 	void GenStatesResult();
 	void ShowStates(int milliseconds=0);
 	void SaveStates();
@@ -28,6 +29,7 @@ public:
 		waitKey(milliseconds);
 	}
 	void SaveBoundry() { imwrite("boundry.jpg", boundry_); }
+	Mat get_boundrymap() const { return boundry_; }
 	
 private:
 	//the factor for computing the averaged color vector difference of all
@@ -43,7 +45,7 @@ private:
 	//the Boltzman constant
 	const double kK;
 	//the neighbors of the computed pixel, {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}}
-	static const int kPixel[3][3];
+	const Matx33i kPixel;
 	//the J for the difference of depthes of pixels > 30cm
 	const int kMaxJ;
 	double mean_diff_;
