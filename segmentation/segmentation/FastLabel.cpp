@@ -12,7 +12,6 @@ FastLabel::FastLabel(const Mat &boundry)
 				u = boundry.at<uchar>(i, j); 
 				if (u < 10) {
 					labels_[i][j] = INFI;
-					if(i<3) printf("%d %d\n", i, j);
 				}
 				else if (u > 245) labels_[i][j] = INFI - 1;
 				else printf("boundry map error at%d, %d\n", i, j);
@@ -23,16 +22,19 @@ void FastLabel::Resolve(const Point &p, int a, int b)
 {
 	int label_a = c(p, a);
 	int label_b = c(p, b);
-	list<set<int>>::iterator i = label_tables_.end();
-	for(list<set<int>>::iterator it = label_tables_.begin();
+	list<set<int> >::iterator i = label_tables_.end();
+	for(list<set<int> >::iterator it = label_tables_.begin();
 		it != label_tables_.end();){
 		if ( it->count(label_a) || it->count(label_b)){
 			if ( i == label_tables_.end()) {
 				i = it++;
 			} else {
 				i->insert(it->begin(), it->end());
-				it = label_tables_.erase(it);
+				label_tables_.erase(it);
+				break;
 			}
+		} else {
+			it++;
 		}
 	}
 }
@@ -41,7 +43,9 @@ void FastLabel::FirstScan()
 {
 	int c1, c2, c3, c4;
 	Point p;
+	set<int> tmp_s;
 	for (int i = 0; i < boundry_.rows; i++)
+	{
 		for (int j = 0; j < boundry_.cols; j++)
 		{
 			p.x = i, p.y = j;
@@ -56,8 +60,14 @@ void FastLabel::FirstScan()
 				if (c(p, 4) != INFI) { Resolve(p, 2, 4); }
 			}
 			else if ((c4 = c(p, 4)) != INFI) { labels_[i][j] = c4; }
-			else { labels_[i][j] = m_++; }
+			else {
+				labels_[i][j] = m_;
+				tmp_s.clear();
+				tmp_s.insert(m_++);
+				label_tables_.push_back(tmp_s);
+			}
 		}
+	}
 }
 
 void FastLabel::SecondScan()
@@ -67,7 +77,7 @@ void FastLabel::SecondScan()
 		for (int j = 0; j < boundry_.cols; j++)
 		{
 			label = labels_[i][j];
-			for (list<set<int>>::iterator it = label_tables_.begin();
+			for (list<set<int> >::iterator it = label_tables_.begin();
 				it != label_tables_.end();
 				it++)
 			{

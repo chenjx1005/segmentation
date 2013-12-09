@@ -1,8 +1,3 @@
-#include <cstdio>
-#include <cmath>
-#include <vector>
-#include <list>
-
 #include "PottsModel.hpp"
 
 
@@ -236,7 +231,7 @@ void PottsModel::GenStatesResult()
 	for (int i = 0; i < rows; i++)
 		for (int j = 0; j < cols; j++)
 		{
-			Vec3b c(static_cast<uchar>(states_[i][j] * 0.6), 255, 255);
+			Vec3b c(static_cast<uchar>(states_[i][j] * 0.6), 180, 255);
 			(*it) = c;
 			it++;
 		}
@@ -260,13 +255,19 @@ void PottsModel::SaveStates()
 	imwrite(s, states_result_);
 }
 
-void PottsModel::UpdateStates(const vector<vector<int>> &states)
+void PottsModel::UpdateStates(const vector<vector<int> > &states)
 {
 	CV_Assert(states.size() == color_.rows);
 	for (int i = 0; i < states.size(); i++){
 		CV_Assert(states[i].size() == color_.cols);
 	}
 	states_ = states;
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+		{
+			states_[i][j] %= num_spin_;
+		}
+	num_result_++;
 }
 
 void PottsModel::GenBoundry()

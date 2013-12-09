@@ -1,7 +1,12 @@
 #ifndef SEGMENTATION_FASTLABEL_H
 #define SEGMENTATION_FASTLABEL_H
 
-#include <opencv2\opencv.hpp>
+#include <cstdio>
+#include <set>
+#include <list>
+
+#include "cv.h"
+#include "highgui.h"
 
 using namespace std;
 using namespace cv;
@@ -18,6 +23,7 @@ public:
 	void Resolve(const Point &p, int a, int b);
 	void FirstScan();
 	void SecondScan();
+	const vector<vector<int> > & get_labels() const { return labels_; }
 
 private:
 	//return the label of c[n] of the current pixel
@@ -33,10 +39,10 @@ private:
 
 	//the min label number
 	int m_;
-	list<set<int>> label_tables_;
+	list<set<int> > label_tables_;
 	Mat boundry_;
 	//label of every pixel
-	vector<vector<int>> labels_;
+	vector<vector<int> > labels_;
 	const Matx52i kC_;
 };
 #endif

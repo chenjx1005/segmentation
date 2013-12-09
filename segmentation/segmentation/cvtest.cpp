@@ -1,11 +1,3 @@
-#include <stdio.h>
-#include <cmath>
-#include <algorithm>
-#include <vector>
-#include <list>
-#include "cv.h"
-#include "highgui.h"
-
 #include "PottsModel.hpp"
 #include "FastLabel.hpp"
 
@@ -16,15 +8,9 @@ double HSVNorm(const Vec3b &, const Vec3b &);
 
 int main(int, char**)
 {
-	Mat b;
-	cvtColor(imread("boundry.jpg"), b, CV_BGR2GRAY);
-	FastLabel f(b);
-	f.FirstScan();
-	f.SecondScan();
-
-	Mat img = imread("Color01.png");
+	Mat img = imread("Color0.png");
 	Mat depth;
-	cvtColor(imread("Depth01.png"), depth, CV_BGR2GRAY);
+	cvtColor(imread("Depth0.png"), depth, CV_BGR2GRAY);
 	
 	PottsModel potts_model(img, depth);
 	while (potts_model.iterable()){
@@ -35,7 +21,15 @@ int main(int, char**)
 	potts_model.ShowBoundry(5000);
 	potts_model.SaveBoundry();
 	Mat boundry = potts_model.get_boundrymap();
-
+	//Mat b;
+	//cvtColor(imread("boundry.jpg"), b, CV_BGR2GRAY);
+	FastLabel f(boundry);
+	f.FirstScan();
+	potts_model.UpdateStates(f.get_labels());
+	potts_model.SaveStates();
+	f.SecondScan();
+	potts_model.UpdateStates(f.get_labels());
+	potts_model.SaveStates();
     return 0;
 }
 

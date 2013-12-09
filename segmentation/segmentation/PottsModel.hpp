@@ -1,7 +1,13 @@
 #ifndef SEGMENTATION_POTTSMODEL_H
 #define SEGMENTATION_POTTSMODEL_H
 
-#include <opencv2\opencv.hpp>
+#include <cstdio>
+#include <cmath>
+#include <vector>
+#include <list>
+
+#include "cv.h"
+#include "highgui.h"
 
 using namespace std;
 using namespace cv;
@@ -21,7 +27,7 @@ public:
 	void GenStatesResult();
 	void ShowStates(int milliseconds=0);
 	void SaveStates();
-	void UpdateStates(const vector<vector<int>> &states);
+	void UpdateStates(const vector<vector<int> > &states);
 	void GenBoundry();
 	void ShowBoundry(int milliseconds=0)
 	{
@@ -56,7 +62,7 @@ private:
 	Mat diff_;
 	Mat states_result_;
 	Mat boundry_;
-	vector<vector<int>> states_;
+	vector<vector<int> > states_;
 };
 #endif
 
