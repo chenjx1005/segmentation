@@ -13,7 +13,7 @@ using namespace cv;
 
 typedef Matx<int, 5, 2> Matx52i;
 
-const int INFI = 0x7FFFFFFF;
+const int INFI = 256255;
 
 class FastLabel
 {

@@ -231,7 +231,8 @@ void PottsModel::GenStatesResult()
 	for (int i = 0; i < rows; i++)
 		for (int j = 0; j < cols; j++)
 		{
-			Vec3b c(static_cast<uchar>(states_[i][j] * 0.6), 180, 255);
+			Vec3b c(static_cast<uchar>(states_[i][j] * 0.6), 180, 230);
+			if (states_[i][j] == 255) c[2] = 0;
 			(*it) = c;
 			it++;
 		}

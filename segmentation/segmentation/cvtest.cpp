@@ -13,16 +13,15 @@ int main(int, char**)
 	cvtColor(imread("Depth0.png"), depth, CV_BGR2GRAY);
 	
 	PottsModel potts_model(img, depth);
-	while (potts_model.iterable()){
+	/*while (potts_model.iterable()){
 		potts_model.MetropolisOnce();
 		potts_model.SaveStates();
 	}
 	potts_model.GenBoundry();
 	potts_model.ShowBoundry(5000);
 	potts_model.SaveBoundry();
-	Mat boundry = potts_model.get_boundrymap();
-	//Mat b;
-	//cvtColor(imread("boundry.jpg"), b, CV_BGR2GRAY);
+	Mat boundry = potts_model.get_boundrymap();*/
+	Mat boundry = imread("boundry.jpg", 0);
 	FastLabel f(boundry);
 	f.FirstScan();
 	potts_model.UpdateStates(f.get_labels());
@@ -30,6 +29,11 @@ int main(int, char**)
 	f.SecondScan();
 	potts_model.UpdateStates(f.get_labels());
 	potts_model.SaveStates();
+	potts_model.Freeze();
+	for (int i=0; i < 10; i++) {
+		potts_model.MetropolisOnce();
+		potts_model.SaveStates();
+	}
     return 0;
 }
 

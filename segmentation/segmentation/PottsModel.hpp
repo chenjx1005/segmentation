@@ -36,6 +36,8 @@ public:
 	}
 	void SaveBoundry() { imwrite("boundry.jpg", boundry_); }
 	Mat get_boundrymap() const { return boundry_; }
+	void set_temperature(double t) { t_ = t; }
+	void Freeze() { t_ = min_t_; } 
 	
 private:
 	//the factor for computing the averaged color vector difference of all
