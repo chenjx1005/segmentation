@@ -21,7 +21,7 @@ int main(int, char**)
 	potts_model.ShowBoundry(5000);
 	potts_model.SaveBoundry();
 	Mat boundry = potts_model.get_boundrymap();*/
-	Mat boundry = imread("boundry.jpg", 0);
+	Mat boundry = imread("b.jpg", 0);
 	FastLabel f(boundry);
 	f.FirstScan();
 	potts_model.UpdateStates(f.get_labels());
@@ -29,9 +29,19 @@ int main(int, char**)
 	f.SecondScan();
 	potts_model.UpdateStates(f.get_labels());
 	potts_model.SaveStates();
-	potts_model.Freeze();
-	for (int i=0; i < 10; i++) {
-		potts_model.MetropolisOnce();
+	for (int i=0; i < 3; i++)
+	{
+		potts_model.Freeze();
+		for (int j=0; j < 4; j++) {
+			potts_model.MetropolisOnce();
+			potts_model.SaveStates();
+		}
+		potts_model.GenBoundry();
+		potts_model.SaveBoundry();
+		FastLabel f2(potts_model.get_boundrymap());
+		f2.FirstScan();
+		f2.SecondScan();
+		potts_model.UpdateStates(f2.get_labels());
 		potts_model.SaveStates();
 	}
     return 0;

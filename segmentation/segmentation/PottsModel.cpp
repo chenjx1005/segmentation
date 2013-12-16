@@ -1,5 +1,7 @@
 #include "PottsModel.hpp"
 
+using namespace std;
+using namespace cv;
 
 PottsModel::PottsModel(const Mat &color, const Mat &depth)
 	:alpha_(1), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
@@ -12,6 +14,22 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth)
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
 			states_[i][j] = depth.at<char>(i, j);
+	ComputeDifference();
+	namedWindow("PottsModel");
+}
+
+PottsModel::PottsModel(const Mat &color)
+	:alpha_(1), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	t_(init_t_), kK(1.3806488e-4), kMaxJ(250), num_result_(0),
+	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
+	boundry_(color.rows, color.cols, CV_8U, Scalar::all(255)),
+	states_(color.rows, vector<int>(color.cols)),
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5)
+{
+	RNG r;
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+			states_[i][j] = r.next() % num_spin_;
 	ComputeDifference();
 	namedWindow("PottsModel");
 }

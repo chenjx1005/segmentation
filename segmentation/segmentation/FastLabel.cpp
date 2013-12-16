@@ -1,5 +1,7 @@
 #include "FastLabel.hpp"
 
+using namespace std;
+using namespace cv;
 
 FastLabel::FastLabel(const Mat &boundry)
 	:m_(1), boundry_(boundry), kC_(0, 0, 0, -1, -1, -1, -1, 0, -1, 1),

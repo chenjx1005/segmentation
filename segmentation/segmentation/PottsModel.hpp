@@ -9,16 +9,15 @@
 #include "cv.h"
 #include "highgui.h"
 
-using namespace std;
-using namespace cv;
 
-typedef Vec<double, 8> Vec8d;
-typedef Matx<int, 3, 3> Matx33i;
+typedef cv::Vec<double, 8> Vec8d;
+typedef cv::Matx<int, 3, 3> Matx33i;
 
 class PottsModel
 {
 public:
-    PottsModel(const Mat &color, const Mat &depth);
+    PottsModel(const cv::Mat &color, const cv::Mat &depth);
+    PottsModel(const cv::Mat &color);
 	virtual ~PottsModel();
 	void ComputeDifference();
 	double PixelEnergy(int pi, int pj) const;
@@ -27,17 +26,21 @@ public:
 	void GenStatesResult();
 	void ShowStates(int milliseconds=0);
 	void SaveStates();
-	void UpdateStates(const vector<vector<int> > &states);
+	void UpdateStates(const std::vector<std::vector<int> > &states);
 	void GenBoundry();
-	void ShowBoundry(int milliseconds=0)
+	void ShowBoundry(int milliseconds=0) const
 	{
-		imshow("PottsModel", boundry_);
-		waitKey(milliseconds);
+		cv::imshow("PottsModel", boundry_);
+		cv::waitKey(milliseconds);
 	}
-	void SaveBoundry() { imwrite("boundry.jpg", boundry_); }
-	Mat get_boundrymap() const { return boundry_; }
+	void SaveBoundry() const { cv::imwrite("boundry.jpg", boundry_); }
+	cv::Mat get_boundrymap() const { return boundry_; }
 	void set_temperature(double t) { t_ = t; }
-	void Freeze() { t_ = min_t_; } 
+	void Freeze() { t_ = min_t_; }
+	void HorizontalColor() const;
+	void VerticalColor() const;
+	void RightDiagColor() const;
+	void LeftDiagColor() const;
 	
 private:
 	//the factor for computing the averaged color vector difference of all
@@ -59,12 +62,12 @@ private:
 	double mean_diff_;
 	int num_result_;
 	int num_result_gen_;
-	Mat color_;
-	Mat depth_;
-	Mat diff_;
-	Mat states_result_;
-	Mat boundry_;
-	vector<vector<int> > states_;
+	cv::Mat color_;
+	cv::Mat depth_;
+	cv::Mat diff_;
+	cv::Mat states_result_;
+	cv::Mat boundry_;
+	std::vector<std::vector<int> > states_;
 };
 #endif
 
