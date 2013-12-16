@@ -1,11 +1,24 @@
+#include <cmath>
+
 #include "PottsModel.hpp"
 
 using namespace std;
 using namespace cv;
 
 namespace {
-	//if the color difference < kwhite, show white
-	const double kWhite = 0.1;
+//if the color difference < kwhite, show white
+const double kWhite = 0.1;
+double hsv_distance(const Vec3b &a, const Vec3b &b)
+{
+	Vec3d ad = Vec3d(a[1] * a[2] / 65025.0 * cos(double(a[0] * 2)), 
+					 a[1] * a[2] / 65025.0 * sin(double(a[0] * 2)),
+					 a[2] / 255.0);
+	Vec3d bd = Vec3d(b[1] * b[2] / 65025.0 * cos(double(b[0] * 2)), 
+					 b[1] * b[2] / 65025.0 * sin(double(b[0] * 2)),
+					 b[2] / 255.0);
+	return norm(ad - bd);
+	//return norm(static_cast<Vec3s>(a) - static_cast<Vec3s>(b));
+}
 }
 
 PottsModel::PottsModel(const Mat &color, const Mat &depth)
@@ -70,7 +83,7 @@ void PottsModel::ComputeDifference()
 			count++;
 			gj = p[j];
 			dj = d[j];
-			color_diff = norm(static_cast<Vec3s>(gi) - static_cast<Vec3s>(gj));
+			color_diff = hsv_distance(gi, gj);
 			depth_diff = abs(static_cast<int>(di) - static_cast<int>(dj));
 			sum += color_diff;
 			if (depth_diff > 30){
@@ -93,7 +106,7 @@ void PottsModel::ComputeDifference()
 			count++;
 			gj = color_.at<Vec3b>(i, j);
 			dj = depth_.at<uchar>(i, j);
-			color_diff = norm(static_cast<Vec3s>(gi) - static_cast<Vec3s>(gj));
+			color_diff = hsv_distance(gi, gj);
 			depth_diff = abs(static_cast<int>(di) - static_cast<int>(dj));
 			sum += color_diff;
 			if (depth_diff > 30) {
@@ -121,7 +134,7 @@ void PottsModel::ComputeDifference()
 					flag = 1;
 				} else {
 					count++;
-					color_diff = norm(static_cast<Vec3s>(gi) - static_cast<Vec3s>(gj));
+					color_diff = hsv_distance(gi, gj);
 					depth_diff = abs(static_cast<int>(di) - static_cast<int>(dj));
 					sum += color_diff;
 					if (depth_diff > 30) {
@@ -153,7 +166,7 @@ void PottsModel::ComputeDifference()
 			count++;
 			gj = *color_diag.ptr<Vec3b>(j);
 			dj = *depth_diag.ptr<uchar>(j);
-			color_diff = norm(static_cast<Vec3s>(gi) - static_cast<Vec3s>(gj));
+			color_diff = hsv_distance(gi, gj);
 			depth_diff = abs(static_cast<int>(di) - static_cast<int>(dj));
 			sum += color_diff;
 			if (depth_diff > 30) {
