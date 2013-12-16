@@ -16,6 +16,7 @@ typedef cv::Matx<int, 3, 3> Matx33i;
 class PottsModel
 {
 public:
+	//color is a hsv/bgr Mat(CV_8UC3), depth is a gray Mat(CV_8U)
     PottsModel(const cv::Mat &color, const cv::Mat &depth);
     PottsModel(const cv::Mat &color);
 	virtual ~PottsModel();
@@ -37,6 +38,7 @@ public:
 	cv::Mat get_boundrymap() const { return boundry_; }
 	void set_temperature(double t) { t_ = t; }
 	void Freeze() { t_ = min_t_; }
+	void ShowDifference() const;
 	void HorizontalColor() const;
 	void VerticalColor() const;
 	void RightDiagColor() const;
@@ -56,6 +58,9 @@ private:
 	//the Boltzman constant
 	const double kK;
 	//the neighbors of the computed pixel, {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}}
+	//4, 2, 6
+	//0,-1, 1
+	//7, 3, 5
 	const Matx33i kPixel;
 	//the J for the difference of depthes of pixels > 30cm
 	const int kMaxJ;

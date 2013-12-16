@@ -3,6 +3,11 @@
 using namespace std;
 using namespace cv;
 
+namespace {
+	//if the color difference < kwhite, show white
+	const double kWhite = 0.1;
+}
+
 PottsModel::PottsModel(const Mat &color, const Mat &depth)
 	:alpha_(1), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250), num_result_(0),
@@ -324,4 +329,84 @@ void PottsModel::GenBoundry()
 			}
 		}
 	}
+}
+
+void PottsModel::ShowDifference() const
+{
+	HorizontalColor();
+	VerticalColor();
+	RightDiagColor();
+	LeftDiagColor();
+}
+
+void PottsModel::HorizontalColor() const
+{
+	Mat md(color_.rows, color_.cols, CV_8UC3);
+	double d = 0;
+	for(int i = 0; i < color_.rows; i++)
+		for(int j = 0; j < color_.cols - 1; j++)
+		{
+			d = diff_.at<double>(i, j, 1);
+			Vec3b c(static_cast<uchar>(d * 0.6), 180, 230);
+			if (d < kWhite) c[1] = 0;
+			md.at<Vec3b>(i, j) = c;
+		}
+	Mat result;
+	cvtColor(md, result, CV_HSV2BGR);
+	imshow("PottsModel", result);
+	waitKey();
+}
+
+void PottsModel::VerticalColor() const
+{
+	Mat md(color_.rows, color_.cols, CV_8UC3);
+	double d = 0;
+	for(int i = 0; i < color_.rows - 1; i++)
+		for(int j = 0; j < color_.cols; j++)
+		{
+			d = diff_.at<double>(i, j, 3);
+			Vec3b c(static_cast<uchar>(d * 0.6), 180, 230);
+			if (d < kWhite) c[1] = 0;
+			md.at<Vec3b>(i, j) = c;
+		}
+	Mat result;
+	cvtColor(md, result, CV_HSV2BGR);
+	imshow("PottsModel", result);
+	waitKey();
+}
+
+void PottsModel::RightDiagColor() const
+{
+	Mat md(color_.rows, color_.cols, CV_8UC3);
+	double d = 0;
+	for(int i = 0; i < color_.rows - 1; i++)
+		for(int j = 1; j < color_.cols; j++)
+		{
+			d = diff_.at<double>(i, j, 7);
+			Vec3b c(static_cast<uchar>(d * 0.6), 180, 230);
+			if (d < kWhite) c[1] = 0;
+			md.at<Vec3b>(i, j) = c;
+		}
+	Mat result;
+	cvtColor(md, result, CV_HSV2BGR);
+	imshow("PottsModel", result);
+	waitKey();
+}
+
+void PottsModel::LeftDiagColor() const
+{
+	Mat md(color_.rows, color_.cols, CV_8UC3);
+	double d = 0;
+	for(int i = 0; i < color_.rows - 1; i++)
+		for(int j = 0; j < color_.cols - 1; j++)
+		{
+			d = diff_.at<double>(i, j, 5);
+			Vec3b c(static_cast<uchar>(d * 0.6), 180, 230);
+			if (d < kWhite) c[1] = 0;
+			md.at<Vec3b>(i, j) = c;
+		}
+	Mat result;
+	cvtColor(md, result, CV_HSV2BGR);
+	imshow("PottsModel", result);
+	waitKey();
 }
