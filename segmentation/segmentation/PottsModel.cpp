@@ -7,15 +7,15 @@ using namespace cv;
 
 namespace {
 //if the color difference < kwhite, show white
-const double kWhite = 0.1;
+const double kWhite = 0;
 double hsv_distance(const Vec3b &a, const Vec3b &b)
 {
-	Vec3d ad = Vec3d(a[1] * a[2] / 65025.0 * cos(double(a[0] * 2)), 
-					 a[1] * a[2] / 65025.0 * sin(double(a[0] * 2)),
-					 a[2] / 255.0);
-	Vec3d bd = Vec3d(b[1] * b[2] / 65025.0 * cos(double(b[0] * 2)), 
-					 b[1] * b[2] / 65025.0 * sin(double(b[0] * 2)),
-					 b[2] / 255.0);
+	Vec3d ad(a[1] * a[2] / 65025.0 * cos(double(a[0] * 2)),
+			 a[1] * a[2] / 65025.0 * sin(double(a[0] * 2)),
+			 a[2] / 255.0);
+	Vec3d bd(b[1] * b[2] / 65025.0 * cos(double(b[0] * 2)),
+			 b[1] * b[2] / 65025.0 * sin(double(b[0] * 2)),
+			 b[2] / 255.0);
 	return norm(ad - bd);
 	//return norm(static_cast<Vec3s>(a) - static_cast<Vec3s>(b));
 }
@@ -179,8 +179,8 @@ void PottsModel::ComputeDifference()
 			di = dj;
 		}
 	}
-	printf("sum is %lf, count is %d\n", sum, count);
 	mean_diff_ = alpha_ * sum / count;
+	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean_diff_, alpha_);
 	diff_ = diff_ * (1 / mean_diff_) - 1;
 	for (list<Vec3s>::const_iterator it = later_update.begin(); it != later_update.end(); it++)
 	{
@@ -209,8 +209,10 @@ void PottsModel::MetropolisOnce()
 	vector<int> min_sequence;
 	RNG r;
 	int a_count = 0, r_count = 0, d_count = 0;
+	int schedule = 0, current = 0;
 	for (int i = 0; i < color_.rows; i++)
 		{
+			schedule = 0;
 			for (int j = 0; j < color_.cols; j++)
 			{
 				min_sequence.clear();
@@ -250,9 +252,14 @@ void PottsModel::MetropolisOnce()
 					states_[i][j] = s;
 				}
 			}
-			printf("t is %lf, row %d is finished\n", t_, i);
+			current = i * 100 / color_.rows;
+			if (current > schedule) {
+				schedule = current;
+				printf(".");
+				fflush(stdout);
+			}
 		}
-		printf("%d is accepted, %d is refused, %d is decreased\n", a_count, r_count, d_count);
+		printf("\ntemperature is %lf, %d is accepted, %d is refused, %d is decreased\n",t_, a_count, r_count, d_count);
 		t_ *= a_c_;
 		num_result_++;
 }
@@ -360,7 +367,7 @@ void PottsModel::HorizontalColor() const
 		for(int j = 0; j < color_.cols - 1; j++)
 		{
 			d = diff_.at<double>(i, j, 1);
-			Vec3b c(static_cast<uchar>(d * 0.6), 180, 230);
+			Vec3b c(static_cast<uchar>(d * 0.5), 180, 230);
 			if (d < kWhite) c[1] = 0;
 			md.at<Vec3b>(i, j) = c;
 		}
@@ -378,7 +385,7 @@ void PottsModel::VerticalColor() const
 		for(int j = 0; j < color_.cols; j++)
 		{
 			d = diff_.at<double>(i, j, 3);
-			Vec3b c(static_cast<uchar>(d * 0.6), 180, 230);
+			Vec3b c(static_cast<uchar>(d * 0.5), 180, 230);
 			if (d < kWhite) c[1] = 0;
 			md.at<Vec3b>(i, j) = c;
 		}
@@ -396,7 +403,7 @@ void PottsModel::RightDiagColor() const
 		for(int j = 1; j < color_.cols; j++)
 		{
 			d = diff_.at<double>(i, j, 7);
-			Vec3b c(static_cast<uchar>(d * 0.6), 180, 230);
+			Vec3b c(static_cast<uchar>(d * 0.5), 180, 230);
 			if (d < kWhite) c[1] = 0;
 			md.at<Vec3b>(i, j) = c;
 		}
@@ -414,7 +421,7 @@ void PottsModel::LeftDiagColor() const
 		for(int j = 0; j < color_.cols - 1; j++)
 		{
 			d = diff_.at<double>(i, j, 5);
-			Vec3b c(static_cast<uchar>(d * 0.6), 180, 230);
+			Vec3b c(static_cast<uchar>(d * 0.5), 180, 230);
 			if (d < kWhite) c[1] = 0;
 			md.at<Vec3b>(i, j) = c;
 		}
