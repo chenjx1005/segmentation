@@ -17,8 +17,8 @@ class PottsModel
 {
 public:
 	//color is a hsv/bgr Mat(CV_8UC3), depth is a gray Mat(CV_8U)
-    PottsModel(const cv::Mat &color, const cv::Mat &depth);
-    PottsModel(const cv::Mat &color);
+    PottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=1);
+    PottsModel(const cv::Mat &color, int color_space=1);
 	virtual ~PottsModel();
 	void ComputeDifference();
 	double PixelEnergy(int pi, int pj) const;
@@ -43,6 +43,7 @@ public:
 	void VerticalColor() const;
 	void RightDiagColor() const;
 	void LeftDiagColor() const;
+	double Distance(const cv::Vec3b &a, const cv::Vec3b &b) const;
 	
 private:
 	//the factor for computing the averaged color vector difference of all
@@ -73,6 +74,8 @@ private:
 	cv::Mat states_result_;
 	cv::Mat boundry_;
 	std::vector<std::vector<int> > states_;
+	int color_space_;
+	enum ColorSpace {HSV = 1, RGB = 2,};
 };
 #endif
 

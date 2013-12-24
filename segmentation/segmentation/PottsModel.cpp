@@ -17,17 +17,16 @@ double hsv_distance(const Vec3b &a, const Vec3b &b)
 			 b[1] * b[2] / 65025.0 * sin(double(b[0] * 2)),
 			 b[2] / 255.0);
 	return norm(ad - bd);
-	//return norm(static_cast<Vec3s>(a) - static_cast<Vec3s>(b));
 }
 }
 
-PottsModel::PottsModel(const Mat &color, const Mat &depth)
+PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
 	:alpha_(1), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(depth),
 	boundry_(color.rows, color.cols, CV_8U, Scalar::all(255)),
 	states_(color.rows, vector<int>(color.cols)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5)
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space)
 {
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
@@ -36,13 +35,13 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth)
 	namedWindow("PottsModel");
 }
 
-PottsModel::PottsModel(const Mat &color)
+PottsModel::PottsModel(const Mat &color, int color_space)
 	:alpha_(1), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
 	boundry_(color.rows, color.cols, CV_8U, Scalar::all(255)),
 	states_(color.rows, vector<int>(color.cols)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5)
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space)
 {
 	RNG r;
 	for (int i = 0; i < color_.rows; i++)
@@ -83,7 +82,7 @@ void PottsModel::ComputeDifference()
 			count++;
 			gj = p[j];
 			dj = d[j];
-			color_diff = hsv_distance(gi, gj);
+			color_diff = Distance(gi, gj);
 			depth_diff = abs(static_cast<int>(di) - static_cast<int>(dj));
 			sum += color_diff;
 			if (depth_diff > 30){
@@ -106,7 +105,7 @@ void PottsModel::ComputeDifference()
 			count++;
 			gj = color_.at<Vec3b>(i, j);
 			dj = depth_.at<uchar>(i, j);
-			color_diff = hsv_distance(gi, gj);
+			color_diff = Distance(gi, gj);
 			depth_diff = abs(static_cast<int>(di) - static_cast<int>(dj));
 			sum += color_diff;
 			if (depth_diff > 30) {
@@ -134,7 +133,7 @@ void PottsModel::ComputeDifference()
 					flag = 1;
 				} else {
 					count++;
-					color_diff = hsv_distance(gi, gj);
+					color_diff = Distance(gi, gj);
 					depth_diff = abs(static_cast<int>(di) - static_cast<int>(dj));
 					sum += color_diff;
 					if (depth_diff > 30) {
@@ -166,7 +165,7 @@ void PottsModel::ComputeDifference()
 			count++;
 			gj = *color_diag.ptr<Vec3b>(j);
 			dj = *depth_diag.ptr<uchar>(j);
-			color_diff = hsv_distance(gi, gj);
+			color_diff = Distance(gi, gj);
 			depth_diff = abs(static_cast<int>(di) - static_cast<int>(dj));
 			sum += color_diff;
 			if (depth_diff > 30) {
@@ -357,6 +356,10 @@ void PottsModel::ShowDifference() const
 	VerticalColor();
 	RightDiagColor();
 	LeftDiagColor();
+	destroyWindow("HorizontalColor");
+	destroyWindow("VerticalColor");
+	destroyWindow("RightDiagColor");
+	destroyWindow("LeftDiagColor");
 }
 
 void PottsModel::HorizontalColor() const
@@ -373,7 +376,8 @@ void PottsModel::HorizontalColor() const
 		}
 	Mat result;
 	cvtColor(md, result, CV_HSV2BGR);
-	imshow("PottsModel", result);
+	namedWindow("HorizontalColor");
+	imshow("HorizontalColor", result);
 	waitKey();
 }
 
@@ -391,7 +395,8 @@ void PottsModel::VerticalColor() const
 		}
 	Mat result;
 	cvtColor(md, result, CV_HSV2BGR);
-	imshow("PottsModel", result);
+	namedWindow("VerticalColor");
+	imshow("VerticalColor", result);
 	waitKey();
 }
 
@@ -409,7 +414,8 @@ void PottsModel::RightDiagColor() const
 		}
 	Mat result;
 	cvtColor(md, result, CV_HSV2BGR);
-	imshow("PottsModel", result);
+	namedWindow("RightDiagColor");
+	imshow("RightDiagColor", result);
 	waitKey();
 }
 
@@ -427,6 +433,15 @@ void PottsModel::LeftDiagColor() const
 		}
 	Mat result;
 	cvtColor(md, result, CV_HSV2BGR);
-	imshow("PottsModel", result);
+	namedWindow("LeftDiagColor");
+	imshow("LeftDiagColor", result);
 	waitKey();
+}
+
+double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
+{
+	if (color_space_ == HSV){
+		return hsv_distance(a, b);
+	}
+	else if (color_space_ == RGB) return norm(static_cast<Vec3s>(a) - static_cast<Vec3s>(b));
 }
