@@ -4,8 +4,6 @@
 using namespace cv;
 using namespace std;
 
-double HSVNorm(const Vec3b &, const Vec3b &);
-
 int main(int, char**)
 {
 	Mat img;
@@ -47,15 +45,4 @@ int main(int, char**)
 		potts_model.SaveStates();
 	}
     return 0;
-}
-
-double HSVNorm(const Vec3b &a, const Vec3b &b)
-{
-	Vec3d ad = Vec3d(a[1] * a[2] / 65025.0 * cos(double(a[0] * 2)), 
-					 a[1] * a[2] / 65025.0 * sin(double(a[0] * 2)),
-					 a[2] / 255.0);
-	Vec3d bd = Vec3d(b[1] * b[2] / 65025.0 * cos(double(b[0] * 2)), 
-					 b[1] * b[2] / 65025.0 * sin(double(b[0] * 2)),
-					 b[2] / 255.0);
-	return norm(ad - bd);
 }
