@@ -14,9 +14,10 @@ class PottsModel
 public:
 	typedef cv::Vec<double, 8> Vec8d;
 	typedef cv::Matx<int, 3, 3> Matx33i;
+	enum ColorSpace {HSV = 1, RGB = 2,};
 	//color is a hsv/bgr Mat(CV_8UC3), depth is a gray Mat(CV_8U)
-    PottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=1);
-    PottsModel(const cv::Mat &color, int color_space=1);
+    PottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=HSV);
+    PottsModel(const cv::Mat &color, int color_space=HSV);
 	virtual ~PottsModel();
 	void ComputeDifference();
 	double PixelEnergy(int pi, int pj) const;
@@ -73,7 +74,6 @@ private:
 	cv::Mat boundry_;
 	std::vector<std::vector<int> > states_;
 	int color_space_;
-	enum ColorSpace {HSV = 1, RGB = 2,};
 };
 #endif
 
