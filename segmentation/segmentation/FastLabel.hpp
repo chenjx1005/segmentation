@@ -8,14 +8,12 @@
 #include "cv.h"
 #include "highgui.h"
 
-
-typedef cv::Matx<int, 5, 2> Matx52i;
-
 const int INFI = 256255;
 
 class FastLabel
 {
 public:
+	typedef cv::Matx<int, 5, 2> Matx52i;
 	FastLabel(const cv::Mat &boundry);
 	virtual ~FastLabel() {};
 	void Resolve(const cv::Point &p, int a, int b);
