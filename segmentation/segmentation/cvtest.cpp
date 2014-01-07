@@ -11,7 +11,8 @@ int main(int, char**)
 	Mat depth;
 	cvtColor(imread("Depth0.png"), depth, CV_BGR2GRAY);
 	
-	PottsModel potts_model(img, depth);
+	//PottsModel potts_model(img, depth);
+	PottsModel potts_model(img);
 	potts_model.ShowDifference();
 	while (potts_model.iterable()){
 		potts_model.MetropolisOnce();

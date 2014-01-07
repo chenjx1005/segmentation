@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include "PottsModel.hpp"
 
@@ -6,8 +7,9 @@ using namespace std;
 using namespace cv;
 
 namespace {
-//if the color difference < kwhite, show white
-const double kWhite = 0;
+const double EPSILON = numeric_limits<double>::epsilon();
+//When show color difference, if the color difference < kwhite, show white
+const double kWhite = 0.0;
 double hsv_distance(const Vec3b &a, const Vec3b &b)
 {
 	Vec3d ad(a[1] * a[2] / 65025.0 * cos(double(a[0] * 2)),
@@ -180,7 +182,9 @@ void PottsModel::ComputeDifference()
 	}
 	mean_diff_ = alpha_ * sum / count;
 	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean_diff_, alpha_);
-	diff_ = diff_ * (1 / mean_diff_) - 1;
+	if (fabs(mean_diff_) >= EPSILON)
+		diff_ = diff_ * (1 / mean_diff_) - 1;
+	else diff_ -= 1;
 	for (list<Vec3s>::const_iterator it = later_update.begin(); it != later_update.end(); it++)
 	{
 		diff_.at<double>((*it)[0], (*it)[1], (*it)[2]) = kMaxJ;
