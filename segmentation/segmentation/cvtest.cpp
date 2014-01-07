@@ -30,6 +30,10 @@ int main(int, char**)
 	f.SecondScan();
 	potts_model.UpdateStates(f.get_labels());
 	potts_model.SaveStates();
+	for (int j=0; j < 4; j++) {
+		potts_model.MetropolisOnce();
+		potts_model.SaveStates();
+	}
 	/*for (int i=0; i < 3; i++)
 	{
 		potts_model.Freeze();

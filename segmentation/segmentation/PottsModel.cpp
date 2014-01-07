@@ -11,6 +11,21 @@ const double EPSILON = numeric_limits<double>::epsilon();
 //When show color difference, if the color difference < kwhite, show white
 const double kWhite = 0.0;
 const double kAlpha = 1.0;
+//the map of states_ and result showed when ShowStates 
+const int kStatesResult[256] = {103, 132, 101, 209, 230, 222, 44, 79, 247, 59, 62, 77, 148, 241, 184, 240, 221, 173, 21, 190,
+								58, 140, 246, 144, 119, 115, 111, 170, 50, 81, 141, 16, 121, 164, 219, 155, 197, 2, 163, 57,
+								134, 129, 56, 126, 235, 47, 78, 80, 231, 55, 210, 248, 114, 104, 54, 189, 70, 63, 5, 27,
+								229, 36, 161, 4, 244, 67, 172, 97, 153, 212, 7, 93, 89, 107, 193, 12, 217, 202, 13, 68, 168,
+								69, 100, 149, 42, 123, 249, 192, 1, 208, 46, 41, 120, 72, 43, 86, 35, 223, 167, 25, 53, 162,
+								130, 19, 157, 234, 87, 15, 152, 215, 242, 128, 98, 169, 200, 45, 185, 245, 224, 214, 174, 195,
+								182, 96, 196, 0, 88, 30, 37, 76, 253, 207, 95, 238, 83, 116, 125, 105, 187, 133, 199, 122,
+								137, 85, 90, 11, 65, 51, 225, 124, 145, 243, 64, 237, 61, 228, 117, 8, 143, 194, 18, 178,
+								135, 20, 142, 82, 166, 136, 92, 179, 211, 109, 91, 154, 252, 32, 138, 28, 204, 239, 49, 150,
+								73, 99, 110, 38, 158, 118, 255, 236, 60, 26, 139, 218, 156, 24, 160, 31, 29, 22, 39, 181,
+								232, 112, 48, 147, 201, 188, 52, 75, 177, 203, 191, 165, 176, 213, 14, 6, 127, 151, 71, 9,
+								251, 250, 186, 205, 23, 216, 108, 227, 102, 146, 180, 40, 10, 226, 84, 131, 74, 94, 3, 34,
+								220, 66, 198, 183, 254, 206, 106, 175, 171, 113, 233, 33, 159, 17};
+
 double hsv_distance(const Vec3b &a, const Vec3b &b)
 {
 	Vec3d ad(a[1] * a[2] / 65025.0 * cos(double(a[0] * 2)),
@@ -273,12 +288,14 @@ void PottsModel::GenStatesResult()
 	if (num_result_gen_ >= num_result_) return;
 	int rows = states_.size();
 	int cols = states_[0].size();
+	int states;
 	Mat hsv(rows, cols, CV_8UC3);
 	MatIterator_<Vec3b> it = hsv.begin<Vec3b>(), end = hsv.end<Vec3b>();
 	for (int i = 0; i < rows; i++)
 		for (int j = 0; j < cols; j++)
 		{
-			Vec3b c(static_cast<uchar>(states_[i][j] * 0.6), 180, 230);
+			states = states_[i][j];
+			Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
 			if (states_[i][j] == 255) c[2] = 0;
 			(*it) = c;
 			it++;

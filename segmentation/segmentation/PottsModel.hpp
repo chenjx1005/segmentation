@@ -26,6 +26,7 @@ public:
 	void GenStatesResult();
 	void ShowStates(int milliseconds=0);
 	void SaveStates();
+	//update states of the model after label
 	void UpdateStates(const std::vector<std::vector<int> > &states);
 	void GenBoundry();
 	void ShowBoundry(int milliseconds=0) const
