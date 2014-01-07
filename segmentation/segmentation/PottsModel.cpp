@@ -10,6 +10,7 @@ namespace {
 const double EPSILON = numeric_limits<double>::epsilon();
 //When show color difference, if the color difference < kwhite, show white
 const double kWhite = 0.0;
+const double kAlpha = 1.0;
 double hsv_distance(const Vec3b &a, const Vec3b &b)
 {
 	Vec3d ad(a[1] * a[2] / 65025.0 * cos(double(a[0] * 2)),
@@ -23,8 +24,8 @@ double hsv_distance(const Vec3b &a, const Vec3b &b)
 }
 
 PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
-	:alpha_(1), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
-	t_(init_t_), kK(1.3806488e-4), kMaxJ(250), num_result_(0),
+	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(depth),
 	boundry_(color.rows, color.cols, CV_8U, Scalar::all(255)),
 	states_(color.rows, vector<int>(color.cols)),
@@ -38,8 +39,8 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
 }
 
 PottsModel::PottsModel(const Mat &color, int color_space)
-	:alpha_(1), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
-	t_(init_t_), kK(1.3806488e-4), kMaxJ(250), num_result_(0),
+	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
 	boundry_(color.rows, color.cols, CV_8U, Scalar::all(255)),
 	states_(color.rows, vector<int>(color.cols)),

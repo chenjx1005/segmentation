@@ -30,7 +30,7 @@ int main(int, char**)
 	f.SecondScan();
 	potts_model.UpdateStates(f.get_labels());
 	potts_model.SaveStates();
-	for (int i=0; i < 3; i++)
+	/*for (int i=0; i < 3; i++)
 	{
 		potts_model.Freeze();
 		for (int j=0; j < 4; j++) {
@@ -44,6 +44,6 @@ int main(int, char**)
 		f2.SecondScan();
 		potts_model.UpdateStates(f2.get_labels());
 		potts_model.SaveStates();
-	}
+	}*/
     return 0;
 }
