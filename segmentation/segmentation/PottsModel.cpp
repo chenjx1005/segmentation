@@ -42,7 +42,7 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
 	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(depth),
-	boundry_(color.rows, color.cols, CV_8U, Scalar::all(255)),
+	boundry_(color.rows, color.cols, CV_8U),
 	states_(color.rows, vector<int>(color.cols)),
 	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space)
 {
@@ -57,7 +57,7 @@ PottsModel::PottsModel(const Mat &color, int color_space)
 	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
-	boundry_(color.rows, color.cols, CV_8U, Scalar::all(255)),
+	boundry_(color.rows, color.cols, CV_8U),
 	states_(color.rows, vector<int>(color.cols)),
 	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space)
 {
@@ -340,6 +340,8 @@ void PottsModel::UpdateStates(const vector<vector<int> > &states)
 
 void PottsModel::GenBoundry()
 {
+	//initialize the boundry_ matrix
+	boundry_ = Scalar::all(255);
 	int flag = 0;
 	for (int i = 0; i < color_.rows; i++)
 	{

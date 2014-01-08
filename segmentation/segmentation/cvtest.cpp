@@ -7,12 +7,13 @@ using namespace std;
 int main(int, char**)
 {
 	Mat img;
-	cvtColor(imread("Color0.png"), img, CV_BGR2HSV);
+	img = imread("Color0.png");
+	//cvtColor(imread("Color0.png"), img, CV_BGR2HSV);
 	Mat depth;
 	cvtColor(imread("Depth0.png"), depth, CV_BGR2GRAY);
 	
 	//PottsModel potts_model(img, depth);
-	PottsModel potts_model(img);
+	PottsModel potts_model(img, PottsModel::RGB);
 	potts_model.ShowDifference();
 	while (potts_model.iterable()){
 		potts_model.MetropolisOnce();
@@ -36,7 +37,7 @@ int main(int, char**)
 	}
 	potts_model.GenBoundry();
 	potts_model.SaveBoundry();
-	/*boundry = potts_model.get_boundrymap();
+	boundry = potts_model.get_boundrymap();
 	//Mat boundry = imread("b.jpg", 0);
 	FastLabel f2(boundry);
 	f2.FirstScan();
@@ -44,7 +45,7 @@ int main(int, char**)
 	potts_model.SaveStates();
 	f2.SecondScan();
 	potts_model.UpdateStates(f2.get_labels());
-	potts_model.SaveStates();*/
+	potts_model.SaveStates();
 	/*for (int i=0; i < 3; i++)
 	{
 		potts_model.Freeze();
