@@ -34,6 +34,17 @@ int main(int, char**)
 		potts_model.MetropolisOnce();
 		potts_model.SaveStates();
 	}
+	potts_model.GenBoundry();
+	potts_model.SaveBoundry();
+	/*boundry = potts_model.get_boundrymap();
+	//Mat boundry = imread("b.jpg", 0);
+	FastLabel f2(boundry);
+	f2.FirstScan();
+	potts_model.UpdateStates(f2.get_labels());
+	potts_model.SaveStates();
+	f2.SecondScan();
+	potts_model.UpdateStates(f2.get_labels());
+	potts_model.SaveStates();*/
 	/*for (int i=0; i < 3; i++)
 	{
 		potts_model.Freeze();

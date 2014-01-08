@@ -8,7 +8,6 @@
 #include "cv.h"
 #include "highgui.h"
 
-const int INFI = 256255;
 
 class FastLabel
 {
@@ -22,6 +21,9 @@ public:
 	const std::vector<std::vector<int> > & get_labels() const { return labels_; }
 
 private:
+	//set the state of the pixel on the boundry line INFI
+	//INFI % 256 = 255.  
+	const int INFI;
 	//return the label of c[n] of the current pixel
 	//no pixel && boundry: INFI
 	int c(const cv::Point &p, int n)

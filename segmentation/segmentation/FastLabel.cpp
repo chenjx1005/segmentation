@@ -5,7 +5,7 @@ using namespace cv;
 
 FastLabel::FastLabel(const Mat &boundry)
 	:m_(1), boundry_(boundry), kC_(0, 0, 0, -1, -1, -1, -1, 0, -1, 1),
-	labels_(boundry.rows, vector<int>(boundry.cols)) 
+	labels_(boundry.rows, vector<int>(boundry.cols)), INFI(256255)
 	{
 		uchar u;
 		for(int i = 0; i < boundry.rows; i++)

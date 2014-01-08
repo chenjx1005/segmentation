@@ -11,7 +11,7 @@ const double EPSILON = numeric_limits<double>::epsilon();
 //When show color difference, if the color difference < kwhite, show white
 const double kWhite = 0.0;
 const double kAlpha = 1.0;
-//the map of states_ and result showed when ShowStates 
+//the map of states_ and result showed when ShowStates to distinguish similar but different states
 const int kStatesResult[256] = {103, 132, 101, 209, 230, 222, 44, 79, 247, 59, 62, 77, 148, 241, 184, 240, 221, 173, 21, 190,
 								58, 140, 246, 144, 119, 115, 111, 170, 50, 81, 141, 16, 121, 164, 219, 155, 197, 2, 163, 57,
 								134, 129, 56, 126, 235, 47, 78, 80, 231, 55, 210, 248, 114, 104, 54, 189, 70, 63, 5, 27,
@@ -295,7 +295,10 @@ void PottsModel::GenStatesResult()
 		for (int j = 0; j < cols; j++)
 		{
 			states = states_[i][j];
+			//map the state to the result array
 			Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
+			//if the state is 255, the pixel is on the boundry line.
+			//so use black
 			if (states_[i][j] == 255) c[2] = 0;
 			(*it) = c;
 			it++;
