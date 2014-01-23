@@ -199,8 +199,8 @@ void PottsModel::ComputeDifference()
 	mean_diff_ = alpha_ * sum / count;
 	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean_diff_, alpha_);
 	if (fabs(mean_diff_) >= EPSILON)
-		diff_ = diff_ * (1 / mean_diff_) - 1;
-	else diff_ -= 1;
+		diff_ = diff_ * (1 / mean_diff_) - Scalar::all(1);
+	else diff_ -= Scalar::all(1);
 	for (list<Vec3s>::const_iterator it = later_update.begin(); it != later_update.end(); it++)
 	{
 		diff_.at<double>((*it)[0], (*it)[1], (*it)[2]) = kMaxJ;
