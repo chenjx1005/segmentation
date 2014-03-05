@@ -1,10 +1,12 @@
 #include <cmath>
 #include <limits>
 
+#include "opencv2/gpu/gpu.hpp"
 #include "PottsModel.hpp"
 
 using namespace std;
 using namespace cv;
+using namespace cv::gpu;
 
 namespace {
 const double EPSILON = numeric_limits<double>::epsilon();
@@ -71,16 +73,50 @@ PottsModel::PottsModel(const Mat &color, int color_space)
 	namedWindow("PottsModel");
 }
 
-PottsModel::PottsModel(const Mat &color, const Mat &depth, const PottsModel &last_frame, int color_space)
+PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_frame, int color_space)
 	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
 	boundry_(color.rows, color.cols, CV_8U),
-	states_(color.rows, vector<int>(color.cols)),
+	states_(color.rows, vector<int>(color.cols, -1)),
 	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
 	segment_depth_(color.rows, color.cols, CV_8U)
 {
+	GpuMat d_flowx, d_flowy;
+	Mat flowx, flowy;
+	FarnebackOpticalFlow calc;
+	Mat gary_last, gary;
 
+	cvtColor(color, gary, CV_BGR2GRAY);
+	cvtColor(last_frame.color_, gary_last, CV_BGR2GRAY);
+	calc(GpuMat(gary_last), GpuMat(gary), d_flowx, d_flowy);
+	d_flowx.download(flowx);
+	d_flowy.download(flowy);
+
+	last_frame.UpdateSegmentDepth();
+	RNG r;
+	int x, y;
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+		{
+			if (abs(static_cast<int>(depth.at<char>(i, j)) - static_cast<int>(last_frame.depth_.at<char>(i, j))) <= 30 &&
+				abs(static_cast<int>(depth.at<char>(i, j)) - static_cast<int>(last_frame.segment_depth_.at<char>(i, j))) <= 30)
+			{
+				x = i + static_cast<int>(flowx.at<double>(i, j));
+				y = j + static_cast<int>(flowy.at<double>(i, j));
+				states_[x][y] = last_frame.states_[i][j];
+			}
+		}
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+		{
+			if (states_[i][j] == -1)
+			{
+				states_[i][j] = r.next() % num_spin_;
+			}
+		}
+	ComputeDifference();
+	namedWindow("PottsModel");
 }
 
 PottsModel::~PottsModel()

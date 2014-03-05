@@ -17,7 +17,7 @@ public:
 	//color is a hsv/bgr Mat(CV_8UC3), depth is a gray Mat(CV_8U)
     PottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB);
     PottsModel(const cv::Mat &color, int color_space=RGB);
-	PottsModel(const cv::Mat &color, const cv::Mat &depth, const PottsModel &last_frame, int color_space=RGB);
+	PottsModel(const cv::Mat &color, const cv::Mat &depth, PottsModel &last_frame, int color_space=RGB);
 	virtual ~PottsModel();
 	void ComputeDifference();
 	double PixelEnergy(int pi, int pj) const;

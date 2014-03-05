@@ -7,14 +7,13 @@ using namespace std;
 
 int main()
 {
-	optical();
+	//!Single frame segment code
 	Mat img;
 	img = imread("Color0.png");
 	//cvtColor(imread("Color0.png"), img, CV_BGR2HSV);
 	Mat depth;
 	cvtColor(imread("Depth0.png"), depth, CV_BGR2GRAY);
 	
-	//PottsModel potts_model(img);
 	PottsModel potts_model(img, PottsModel::RGB);
 	//potts_model.ShowDifference();
 	while (potts_model.iterable()){
@@ -48,20 +47,9 @@ int main()
 	f2.SecondScan();
 	potts_model.UpdateStates(f2.get_labels());
 	potts_model.SaveStates();
-	/*for (int i=0; i < 3; i++)
-	{
-		potts_model.Freeze();
-		for (int j=0; j < 4; j++) {
-			potts_model.MetropolisOnce();
-			potts_model.SaveStates();
-		}
-		potts_model.GenBoundry();
-		potts_model.SaveBoundry();
-		FastLabel f2(potts_model.get_boundrymap());
-		f2.FirstScan();
-		f2.SecondScan();
-		potts_model.UpdateStates(f2.get_labels());
-		potts_model.SaveStates();
-	}*/
+	//!Single frame segment code end
+	//!optical flow test code
+	
+	//!optical flow test code end
     return 0;
 }
