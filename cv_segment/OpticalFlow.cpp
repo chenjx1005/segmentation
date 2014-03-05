@@ -115,7 +115,7 @@ inline void motionToColor(Mat flow, Mat &color)
 
 inline int optical()
 {
-    VideoCapture cap("Color%1d.png");
+    VideoCapture cap("%1d.png");
 
 	//cap.set(CV_CAP_PROP_FRAME_WIDTH,320.);
 	//cap.set(CV_CAP_PROP_FRAME_HEIGHT,240.);

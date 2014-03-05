@@ -44,7 +44,8 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
 	num_result_gen_(-1), color_(color), depth_(depth),
 	boundry_(color.rows, color.cols, CV_8U),
 	states_(color.rows, vector<int>(color.cols)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space)
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
+	segment_depth_(color.rows, color.cols, CV_8U)
 {
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
@@ -59,7 +60,8 @@ PottsModel::PottsModel(const Mat &color, int color_space)
 	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
 	boundry_(color.rows, color.cols, CV_8U),
 	states_(color.rows, vector<int>(color.cols)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space)
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
+	segment_depth_(color.rows, color.cols, CV_8U)
 {
 	RNG r;
 	for (int i = 0; i < color_.rows; i++)
@@ -67,6 +69,18 @@ PottsModel::PottsModel(const Mat &color, int color_space)
 			states_[i][j] = r.next() % num_spin_;
 	ComputeDifference();
 	namedWindow("PottsModel");
+}
+
+PottsModel::PottsModel(const Mat &color, const Mat &depth, const PottsModel &last_frame, int color_space)
+	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
+	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
+	boundry_(color.rows, color.cols, CV_8U),
+	states_(color.rows, vector<int>(color.cols)),
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
+	segment_depth_(color.rows, color.cols, CV_8U)
+{
+
 }
 
 PottsModel::~PottsModel()
@@ -336,6 +350,23 @@ void PottsModel::UpdateStates(const vector<vector<int> > &states)
 			states_[i][j] %= num_spin_;
 		}
 	num_result_++;
+}
+
+void PottsModel::UpdateSegmentDepth()
+{
+	vector<int> segment_depth(num_spin_);
+	vector<int> segment_count(num_spin_);
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+		{
+			segment_depth[states_[i][j]] += depth_.at<char>(i, j);
+			segment_count[states_[i][j]]++;
+		}
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+		{
+			segment_depth_.at<char>(i, j) = segment_depth[states_[i][j]]/segment_count[states_[i][j]];
+		}
 }
 
 void PottsModel::GenBoundry()

@@ -17,6 +17,7 @@ public:
 	//color is a hsv/bgr Mat(CV_8UC3), depth is a gray Mat(CV_8U)
     PottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB);
     PottsModel(const cv::Mat &color, int color_space=RGB);
+	PottsModel(const cv::Mat &color, const cv::Mat &depth, const PottsModel &last_frame, int color_space=RGB);
 	virtual ~PottsModel();
 	void ComputeDifference();
 	double PixelEnergy(int pi, int pj) const;
@@ -27,6 +28,7 @@ public:
 	void SaveStates();
 	//update states of the model after label
 	void UpdateStates(const std::vector<std::vector<int> > &states);
+	void UpdateSegmentDepth();
 	void GenBoundry();
 	void ShowBoundry(int milliseconds=0) const
 	{
@@ -49,7 +51,7 @@ private:
 	//neighbors<i, j> and range in [0, 10]
 	double alpha_;
 	//default 256 for convenience
-	int num_spin_;
+	const int num_spin_;
 	double init_t_;
 	double min_t_;
 	//the annealing coefficient, less than 1
@@ -65,15 +67,22 @@ private:
 	//the J for the difference of depthes of pixels > 30cm
 	const int kMaxJ;
 	double mean_diff_;
+	//the variables used to control a result image whether to save
 	int num_result_;
 	int num_result_gen_;
+	//init matrix, color and depth
 	cv::Mat color_;
 	cv::Mat depth_;
+	//init matrix, difference of neighbor pixels
 	cv::Mat diff_;
+	//the matrix used for showing
 	cv::Mat states_result_;
 	cv::Mat boundry_;
+	//the spin variable of each pixel
 	std::vector<std::vector<int> > states_;
 	int color_space_;
+	//the average range value of each segment
+	cv::Mat segment_depth_;
 };
 #endif
 
