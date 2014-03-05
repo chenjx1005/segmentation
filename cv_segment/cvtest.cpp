@@ -16,7 +16,7 @@ int main()
 	
 	PottsModel potts_model(img, PottsModel::RGB);
 	//potts_model.ShowDifference();
-	while (potts_model.iterable()){
+	/*while (potts_model.iterable()){
 		potts_model.MetropolisOnce();
 		potts_model.SaveStates();
 	}
@@ -38,8 +38,8 @@ int main()
 	}
 	potts_model.GenBoundry();
 	potts_model.SaveBoundry();
-	boundry = potts_model.get_boundrymap();
-	//Mat boundry = imread("b.jpg", 0);
+	boundry = potts_model.get_boundrymap();*/
+	Mat boundry = imread("boundry.jpg", 0);
 	FastLabel f2(boundry);
 	f2.FirstScan();
 	potts_model.UpdateStates(f2.get_labels());
@@ -49,7 +49,11 @@ int main()
 	potts_model.SaveStates();
 	//!Single frame segment code end
 	//!optical flow test code
-	
+	Mat img2 = imread("Color1.png");
+	Mat depth2;
+	cvtColor(imread("Depth1.png"), depth2, CV_BGR2GRAY);
+	PottsModel potts2(img2, depth2, potts_model);
+	potts2.SaveStates();
 	//!optical flow test code end
     return 0;
 }

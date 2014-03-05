@@ -538,4 +538,5 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 		return hsv_distance(a, b);
 	}
 	else if (color_space_ == RGB) return norm(static_cast<Vec3s>(a) - static_cast<Vec3s>(b));
+	else return 0;
 }
