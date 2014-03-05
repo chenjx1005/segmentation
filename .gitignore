@@ -213,6 +213,7 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
-.sln
-.png
-.vcxproj*
+*.sln
+*.png
+*.vcxproj
+*.filters
