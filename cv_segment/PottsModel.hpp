@@ -5,8 +5,10 @@
 #include <cmath>
 #include <vector>
 #include <list>
+#include <string>
 
 #include "opencv2\opencv.hpp"
+#include "opencv2/gpu/gpu.hpp"
 
 class PottsModel
 {
@@ -25,7 +27,7 @@ public:
 	bool iterable() const { return t_ >= min_t_; }
 	void GenStatesResult();
 	void ShowStates(int milliseconds=0);
-	void SaveStates();
+	void SaveStates(const std::string &title="");
 	//update states of the model after label
 	void UpdateStates(const std::vector<std::vector<int> > &states);
 	void UpdateSegmentDepth();
@@ -83,6 +85,8 @@ private:
 	int color_space_;
 	//the average range value of each segment
 	cv::Mat segment_depth_;
+	//the farneback optical flow object
+	static cv::gpu::FarnebackOpticalFlow FarneCalc;
 };
 #endif
 

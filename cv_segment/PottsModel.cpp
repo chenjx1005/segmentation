@@ -1,12 +1,13 @@
 #include <cmath>
 #include <limits>
 
-#include "opencv2/gpu/gpu.hpp"
 #include "PottsModel.hpp"
 
 using namespace std;
 using namespace cv;
 using namespace cv::gpu;
+
+FarnebackOpticalFlow PottsModel::FarneCalc;
 
 namespace {
 const double EPSILON = numeric_limits<double>::epsilon();
@@ -84,12 +85,11 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_fram
 {
 	GpuMat d_flowx, d_flowy;
 	Mat flowx, flowy;
-	FarnebackOpticalFlow calc;
 	Mat gary_last, gary;
 
 	cvtColor(color, gary, CV_BGR2GRAY);
 	cvtColor(last_frame.color_, gary_last, CV_BGR2GRAY);
-	calc(GpuMat(gary_last), GpuMat(gary), d_flowx, d_flowy);
+	FarneCalc(GpuMat(gary_last), GpuMat(gary), d_flowx, d_flowy);
 	d_flowx.download(flowx);
 	d_flowy.download(flowy);
 
@@ -99,13 +99,18 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_fram
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
 		{
-			if (abs(static_cast<int>(depth.at<char>(i, j)) - static_cast<int>(last_frame.depth_.at<char>(i, j))) <= 30 &&
-				abs(static_cast<int>(depth.at<char>(i, j)) - static_cast<int>(last_frame.segment_depth_.at<char>(i, j))) <= 30)
+			x = i + static_cast<int>(flowx.at<float>(i, j));
+			y = j + static_cast<int>(flowy.at<float>(i, j));
+			if (x >= 0 && y >=0 && x < color_.rows && y < color_.cols && 
+				abs(static_cast<int>(depth.at<uchar>(x, y)) - static_cast<int>(last_frame.depth_.at<uchar>(i, j))) <= 30 &&
+				abs(static_cast<int>(depth.at<uchar>(x, y)) - static_cast<int>(last_frame.segment_depth_.at<uchar>(i, j))) <= 100)
 			{
-				x = i + static_cast<int>(flowx.at<double>(i, j));
-				y = j + static_cast<int>(flowy.at<double>(i, j));
 				states_[x][y] = last_frame.states_[i][j];
 			}
+			//else
+			//{
+			//	cout << "x:"<<x<<" y:"<<y<<" depth:"<<static_cast<int>(depth.at<uchar>(x, y))<<" "<<static_cast<int>(last_frame.depth_.at<uchar>(i, j))<<" "<<static_cast<int>(last_frame.segment_depth_.at<uchar>(i, j))<<endl;
+			//}
 		}
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
@@ -364,13 +369,20 @@ void PottsModel::ShowStates(int milliseconds)
 	waitKey(milliseconds);
 }
 
-void PottsModel::SaveStates()
+void PottsModel::SaveStates(const string &title)
 {
 	GenStatesResult();
-	char result_name[20];
-	sprintf(result_name, "result%d.jpg", num_result_);
-	string s(result_name);
-	imwrite(s, states_result_);
+	if (title == "")
+	{
+		char result_name[20];
+		sprintf(result_name, "result%d.jpg", num_result_);
+		string s(result_name);
+		imwrite(s, states_result_);
+	}
+	else
+	{
+		imwrite(title, states_result_);
+	}
 }
 
 void PottsModel::UpdateStates(const vector<vector<int> > &states)
