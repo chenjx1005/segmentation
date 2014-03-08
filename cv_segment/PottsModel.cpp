@@ -54,7 +54,7 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
 		for (int j = 0; j < color_.cols; j++)
 			states_[i][j] = depth.at<char>(i, j);
 	ComputeDifference();
-	namedWindow("PottsModel");
+	//namedWindow("PottsModel");
 }
 
 PottsModel::PottsModel(const Mat &color, int color_space)
@@ -71,13 +71,13 @@ PottsModel::PottsModel(const Mat &color, int color_space)
 		for (int j = 0; j < color_.cols; j++)
 			states_[i][j] = r.next() % num_spin_;
 	ComputeDifference();
-	namedWindow("PottsModel");
+	//namedWindow("PottsModel");
 }
 
-PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_frame, int color_space)
+PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_frame, int color_space)             
 	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
-	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
+	num_result_gen_(-1), color_(color), depth_(depth),
 	boundry_(color.rows, color.cols, CV_8U),
 	states_(color.rows, vector<int>(color.cols, -1)),
 	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
@@ -89,7 +89,10 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_fram
 
 	cvtColor(color, gary, CV_BGR2GRAY);
 	cvtColor(last_frame.color_, gary_last, CV_BGR2GRAY);
+	double t = (double)cvGetTickCount();
 	FarneCalc(GpuMat(gary_last), GpuMat(gary), d_flowx, d_flowy);
+	t = (double)cvGetTickCount() - t;
+	cout << "optical flow cost time: " << t / ((double)cvGetTickFrequency()*1000.) << endl;
 	d_flowx.download(flowx);
 	d_flowy.download(flowy);
 
@@ -121,12 +124,13 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_fram
 			}
 		}
 	ComputeDifference();
-	namedWindow("PottsModel");
+	//namedWindow("PottsModel");
 }
 
 PottsModel::~PottsModel()
 {
-	destroyWindow("PottsModel");
+	cout << "Destructor"<<endl;
+	//destroyWindow("PottsModel");
 }
 
 void PottsModel::ComputeDifference()
@@ -385,6 +389,7 @@ void PottsModel::SaveStates(const string &title)
 	}
 }
 
+//TODO: optimize the states copy
 void PottsModel::UpdateStates(const vector<vector<int> > &states)
 {
 	CV_Assert(states.size() == color_.rows);

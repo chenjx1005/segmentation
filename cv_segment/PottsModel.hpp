@@ -47,6 +47,7 @@ public:
 	void RightDiagColor() const;
 	void LeftDiagColor() const;
 	double Distance(const cv::Vec3b &a, const cv::Vec3b &b) const;
+	void printdepth(){ std::cout<< depth_ << std::endl; }
 	
 private:
 	//the factor for computing the averaged color vector difference of all
