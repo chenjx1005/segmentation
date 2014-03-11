@@ -1,5 +1,7 @@
 #include <cmath>
 #include <limits>
+#include <map>
+#include <algorithm>
 
 #include "PottsModel.hpp"
 
@@ -42,7 +44,7 @@ double hsv_distance(const Vec3b &a, const Vec3b &b)
 }
 
 PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
-	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	:start_frame_(1), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(depth),
 	boundry_(color.rows, color.cols, CV_8U),
@@ -58,7 +60,7 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
 }
 
 PottsModel::PottsModel(const Mat &color, int color_space)
-	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	:start_frame_(1), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
 	boundry_(color.rows, color.cols, CV_8U),
@@ -75,7 +77,7 @@ PottsModel::PottsModel(const Mat &color, int color_space)
 }
 
 PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_frame, int color_space)             
-	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	:start_frame_(0), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(depth),
 	boundry_(color.rows, color.cols, CV_8U),
@@ -356,9 +358,9 @@ void PottsModel::GenStatesResult()
 			states = states_[i][j];
 			//map the state to the result array
 			Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
-			//if the state is 255, the pixel is on the boundry line.
+			//if the state is num_spin_ - 1, the pixel is on the boundry line.
 			//so use black
-			if (states_[i][j] == 255) c[2] = 0;
+			if (states_[i][j] == num_spin_ - 1) c[2] = 0;
 			(*it) = c;
 			it++;
 		}
@@ -396,12 +398,56 @@ void PottsModel::UpdateStates(const vector<vector<int> > &states)
 	for (int i = 0; i < states.size(); i++){
 		CV_Assert(states[i].size() == color_.cols);
 	}
-	states_ = states;
-	for (int i = 0; i < color_.rows; i++)
-		for (int j = 0; j < color_.cols; j++)
+	if (start_frame_)
+	{
+		for (int i = 0; i < color_.rows; i++)
+			for (int j = 0; j < color_.cols; j++)
+			{
+				states_[i][j] = states[i][j] % num_spin_;
+			}
+	}
+	else
+	{
+		map<int, int> states_map;
+		map<int, vector<int> > states_count;
+		map<int, vector<int> >::iterator it;
+		int s, si;
+
+		for (int i = 0; i < color_.rows; i++)
+			for (int j = 0; j < color_.cols; j++)
+			{
+				s = states[i][j];
+				//if position i,j is the boundry
+				if ( s % num_spin_ == num_spin_ - 1) 
+				{
+					states_[i][j] = -1;
+					continue;
+				}
+				it = states_count.find(s);
+				if (it == states_count.end()) 
+				{
+					states_count.insert(make_pair(s, vector<int>(num_spin_ - 1)));
+				}
+				else
+				{
+					si = states_[i][j];
+					if (si != num_spin_ - 1)
+						(it->second)[si]++;
+				}
+			}
+		for (it = states_count.begin(); it != states_count.end(); it++)
 		{
-			states_[i][j] %= num_spin_;
+			states_map[it->first] = max_element((it->second).begin(), (it->second).end()) - (it->second).begin();
 		}
+		for (int i = 0; i < color_.rows; i++)
+			for (int j = 0; j < color_.cols; j++)
+			{
+				if (states_[i][j] != -1)
+					states_[i][j] = states_map[states[i][j]];
+				else
+					states_[i][j] = num_spin_ - 1;
+			}
+	}
 	num_result_++;
 }
 

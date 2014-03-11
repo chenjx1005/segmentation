@@ -36,9 +36,10 @@ void rest_iterate(PottsModel *potts_model)
 	potts_model->Freeze();
 	for (int j=0; j < 4; j++) {
 		potts_model->MetropolisOnce();
-		//potts_model->SaveStates();
+		potts_model->SaveStates();
 	}
 	potts_model->GenBoundry();
+	potts_model->SaveBoundry();
 	Mat boundry = potts_model->get_boundrymap();
 	FastLabel f(boundry);
 	f.FirstScan();

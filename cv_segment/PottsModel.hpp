@@ -50,6 +50,8 @@ public:
 	void printdepth(){ std::cout<< depth_ << std::endl; }
 	
 private:
+	//the flag whether this frame is the start frame
+	int start_frame_;
 	//the factor for computing the averaged color vector difference of all
 	//neighbors<i, j> and range in [0, 10]
 	double alpha_;
