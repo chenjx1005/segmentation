@@ -63,7 +63,8 @@ void FastLabel::FirstScan()
 			}
 			else if ((c4 = c(p, 4)) != INFI) { labels_[i][j] = c4; }
 			else {
-				labels_[i][j] = m_;
+				//prevent the label set 255
+				labels_[i][j] = m_ % 256 == 255 ? ++m_ : m_;
 				tmp_s.clear();
 				tmp_s.insert(m_++);
 				label_tables_.push_back(tmp_s);

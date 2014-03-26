@@ -5,9 +5,10 @@
 #include <cmath>
 #include <vector>
 #include <list>
+#include <string>
 
-#include "cv.h"
-#include "highgui.h"
+#include "opencv2\opencv.hpp"
+#include "opencv2/gpu/gpu.hpp"
 
 class PottsModel
 {
@@ -16,8 +17,9 @@ public:
 	typedef cv::Matx<int, 3, 3> Matx33i;
 	enum ColorSpace {HSV = 1, RGB = 2,};
 	//color is a hsv/bgr Mat(CV_8UC3), depth is a gray Mat(CV_8U)
-    PottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=HSV);
-    PottsModel(const cv::Mat &color, int color_space=HSV);
+    PottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB);
+    PottsModel(const cv::Mat &color, int color_space=RGB);
+	PottsModel(const cv::Mat &color, const cv::Mat &depth, PottsModel &last_frame, int color_space=RGB);
 	virtual ~PottsModel();
 	void ComputeDifference();
 	double PixelEnergy(int pi, int pj) const;
@@ -25,9 +27,10 @@ public:
 	bool iterable() const { return t_ >= min_t_; }
 	void GenStatesResult();
 	void ShowStates(int milliseconds=0);
-	void SaveStates();
+	void SaveStates(const std::string &title="");
 	//update states of the model after label
 	void UpdateStates(const std::vector<std::vector<int> > &states);
+	void UpdateSegmentDepth();
 	void GenBoundry();
 	void ShowBoundry(int milliseconds=0) const
 	{
@@ -44,13 +47,16 @@ public:
 	void RightDiagColor() const;
 	void LeftDiagColor() const;
 	double Distance(const cv::Vec3b &a, const cv::Vec3b &b) const;
+	void printdepth(){ std::cout<< depth_ << std::endl; }
 	
 private:
+	//the flag whether this frame is the start frame
+	int start_frame_;
 	//the factor for computing the averaged color vector difference of all
 	//neighbors<i, j> and range in [0, 10]
 	double alpha_;
 	//default 256 for convenience
-	int num_spin_;
+	const int num_spin_;
 	double init_t_;
 	double min_t_;
 	//the annealing coefficient, less than 1
@@ -66,15 +72,24 @@ private:
 	//the J for the difference of depthes of pixels > 30cm
 	const int kMaxJ;
 	double mean_diff_;
+	//the variables used to control a result image whether to save
 	int num_result_;
 	int num_result_gen_;
+	//init matrix, color and depth
 	cv::Mat color_;
 	cv::Mat depth_;
+	//init matrix, difference of neighbor pixels
 	cv::Mat diff_;
+	//the matrix used for showing
 	cv::Mat states_result_;
 	cv::Mat boundry_;
+	//the spin variable of each pixel
 	std::vector<std::vector<int> > states_;
 	int color_space_;
+	//the average range value of each segment
+	cv::Mat segment_depth_;
+	//the farneback optical flow object
+	static cv::gpu::FarnebackOpticalFlow FarneCalc;
 };
 #endif
 

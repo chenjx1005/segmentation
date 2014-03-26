@@ -1,10 +1,15 @@
 #include <cmath>
 #include <limits>
+#include <map>
+#include <algorithm>
 
 #include "PottsModel.hpp"
 
 using namespace std;
 using namespace cv;
+using namespace cv::gpu;
+
+FarnebackOpticalFlow PottsModel::FarneCalc;
 
 namespace {
 const double EPSILON = numeric_limits<double>::epsilon();
@@ -39,39 +44,95 @@ double hsv_distance(const Vec3b &a, const Vec3b &b)
 }
 
 PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
-	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	:start_frame_(1), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(depth),
 	boundry_(color.rows, color.cols, CV_8U),
 	states_(color.rows, vector<int>(color.cols)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space)
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
+	segment_depth_(color.rows, color.cols, CV_8U)
 {
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
 			states_[i][j] = depth.at<char>(i, j);
 	ComputeDifference();
-	namedWindow("PottsModel");
+	//namedWindow("PottsModel");
 }
 
 PottsModel::PottsModel(const Mat &color, int color_space)
-	:alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	:start_frame_(1), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
 	boundry_(color.rows, color.cols, CV_8U),
 	states_(color.rows, vector<int>(color.cols)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space)
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
+	segment_depth_(color.rows, color.cols, CV_8U)
 {
 	RNG r;
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
 			states_[i][j] = r.next() % num_spin_;
 	ComputeDifference();
-	namedWindow("PottsModel");
+	//namedWindow("PottsModel");
+}
+
+PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_frame, int color_space)             
+	:start_frame_(0), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
+	num_result_gen_(-1), color_(color), depth_(depth),
+	boundry_(color.rows, color.cols, CV_8U),
+	states_(color.rows, vector<int>(color.cols, -1)),
+	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
+	segment_depth_(color.rows, color.cols, CV_8U)
+{
+	GpuMat d_flowx, d_flowy;
+	Mat flowx, flowy;
+	Mat gary_last, gary;
+
+	cvtColor(color, gary, CV_BGR2GRAY);
+	cvtColor(last_frame.color_, gary_last, CV_BGR2GRAY);
+	double t = (double)cvGetTickCount();
+	FarneCalc(GpuMat(gary_last), GpuMat(gary), d_flowx, d_flowy);
+	t = (double)cvGetTickCount() - t;
+	cout << "optical flow cost time: " << t / ((double)cvGetTickFrequency()*1000.) << endl;
+	d_flowx.download(flowx);
+	d_flowy.download(flowy);
+
+	last_frame.UpdateSegmentDepth();
+	RNG r;
+	int x, y;
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+		{
+			x = i + static_cast<int>(flowx.at<float>(i, j));
+			y = j + static_cast<int>(flowy.at<float>(i, j));
+			if (x >= 0 && y >=0 && x < color_.rows && y < color_.cols && 
+				abs(static_cast<int>(depth.at<uchar>(x, y)) - static_cast<int>(last_frame.depth_.at<uchar>(i, j))) <= 30 &&
+				abs(static_cast<int>(depth.at<uchar>(x, y)) - static_cast<int>(last_frame.segment_depth_.at<uchar>(i, j))) <= 100)
+			{
+				states_[x][y] = last_frame.states_[i][j];
+			}
+			//else
+			//{
+			//	cout << "x:"<<x<<" y:"<<y<<" depth:"<<static_cast<int>(depth.at<uchar>(x, y))<<" "<<static_cast<int>(last_frame.depth_.at<uchar>(i, j))<<" "<<static_cast<int>(last_frame.segment_depth_.at<uchar>(i, j))<<endl;
+			//}
+		}
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+		{
+			if (states_[i][j] == -1)
+			{
+				states_[i][j] = r.next() % num_spin_;
+			}
+		}
+	ComputeDifference();
+	//namedWindow("PottsModel");
 }
 
 PottsModel::~PottsModel()
 {
-	destroyWindow("PottsModel");
+	cout << "Destructor"<<endl;
+	//destroyWindow("PottsModel");
 }
 
 void PottsModel::ComputeDifference()
@@ -297,9 +358,9 @@ void PottsModel::GenStatesResult()
 			states = states_[i][j];
 			//map the state to the result array
 			Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
-			//if the state is 255, the pixel is on the boundry line.
+			//if the state is num_spin_ - 1, the pixel is on the boundry line.
 			//so use black
-			if (states_[i][j] == 255) c[2] = 0;
+			if (states_[i][j] == num_spin_ - 1) c[2] = 0;
 			(*it) = c;
 			it++;
 		}
@@ -314,28 +375,97 @@ void PottsModel::ShowStates(int milliseconds)
 	waitKey(milliseconds);
 }
 
-void PottsModel::SaveStates()
+void PottsModel::SaveStates(const string &title)
 {
 	GenStatesResult();
-	char result_name[20];
-	sprintf(result_name, "result%d.jpg", num_result_);
-	string s(result_name);
-	imwrite(s, states_result_);
+	if (title == "")
+	{
+		char result_name[20];
+		sprintf(result_name, "result%d.jpg", num_result_);
+		string s(result_name);
+		imwrite(s, states_result_);
+	}
+	else
+	{
+		imwrite(title, states_result_);
+	}
 }
 
+//TODO: optimize the states copy
 void PottsModel::UpdateStates(const vector<vector<int> > &states)
 {
 	CV_Assert(states.size() == color_.rows);
 	for (int i = 0; i < states.size(); i++){
 		CV_Assert(states[i].size() == color_.cols);
 	}
-	states_ = states;
+	if (start_frame_)
+	{
+		for (int i = 0; i < color_.rows; i++)
+			for (int j = 0; j < color_.cols; j++)
+			{
+				states_[i][j] = states[i][j] % num_spin_;
+			}
+	}
+	else
+	{
+		map<int, int> states_map;
+		map<int, vector<int> > states_count;
+		map<int, vector<int> >::iterator it;
+		int s, si;
+
+		for (int i = 0; i < color_.rows; i++)
+			for (int j = 0; j < color_.cols; j++)
+			{
+				s = states[i][j];
+				//if position i,j is the boundry
+				if ( s % num_spin_ == num_spin_ - 1) 
+				{
+					states_[i][j] = -1;
+					continue;
+				}
+				it = states_count.find(s);
+				if (it == states_count.end()) 
+				{
+					states_count.insert(make_pair(s, vector<int>(num_spin_ - 1)));
+				}
+				else
+				{
+					si = states_[i][j];
+					if (si != num_spin_ - 1)
+						(it->second)[si]++;
+				}
+			}
+		for (it = states_count.begin(); it != states_count.end(); it++)
+		{
+			states_map[it->first] = max_element((it->second).begin(), (it->second).end()) - (it->second).begin();
+		}
+		for (int i = 0; i < color_.rows; i++)
+			for (int j = 0; j < color_.cols; j++)
+			{
+				if (states_[i][j] != -1)
+					states_[i][j] = states_map[states[i][j]];
+				else
+					states_[i][j] = num_spin_ - 1;
+			}
+	}
+	num_result_++;
+}
+
+void PottsModel::UpdateSegmentDepth()
+{
+	vector<int> segment_depth(num_spin_);
+	vector<int> segment_count(num_spin_);
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
 		{
-			states_[i][j] %= num_spin_;
+			segment_depth[states_[i][j]] += depth_.at<char>(i, j);
+			segment_count[states_[i][j]]++;
 		}
-	num_result_++;
+	for (int i = 0; i < color_.rows; i++)
+		for (int j = 0; j < color_.cols; j++)
+		{
+			segment_depth_.at<char>(i, j) = segment_depth[states_[i][j]]/segment_count[states_[i][j]];
+		}
 }
 
 void PottsModel::GenBoundry()
@@ -471,4 +601,5 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 		return hsv_distance(a, b);
 	}
 	else if (color_space_ == RGB) return norm(static_cast<Vec3s>(a) - static_cast<Vec3s>(b));
+	else return 0;
 }

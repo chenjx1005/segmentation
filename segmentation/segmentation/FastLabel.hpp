@@ -5,9 +5,7 @@
 #include <set>
 #include <list>
 
-#include "cv.h"
-#include "highgui.h"
-
+#include "opencv2\opencv.hpp"
 
 class FastLabel
 {
