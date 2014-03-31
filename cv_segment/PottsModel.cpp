@@ -8,13 +8,12 @@ using namespace std;
 using namespace cv;
 using namespace cv::gpu;
 
-FarnebackOpticalFlow PottsModel::FarneCalc;
+FarnebackOpticalFlow BasicPottsModel::FarneCalc;
 
 namespace {
 const double EPSILON = numeric_limits<double>::epsilon();
 //When show color difference, if the color difference < kwhite, show white
 const double kWhite = 0.0;
-const double kAlpha = 1.0;
 //the map of states_ and result showed when ShowStates to distinguish similar but different states
 const int kStatesResult[256] = {103, 132, 101, 209, 230, 222, 44, 79, 247, 59, 62, 77, 148, 241, 184, 240, 221, 173, 21, 190,
 								58, 140, 246, 144, 119, 115, 111, 170, 50, 81, 141, 16, 121, 164, 219, 155, 197, 2, 163, 57,
@@ -43,13 +42,8 @@ double hsv_distance(const Vec3b &a, const Vec3b &b)
 }
 
 PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
-	:start_frame_(1), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
-	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
-	num_result_gen_(-1), color_(color), depth_(depth),
-	boundry_(color.rows, color.cols, CV_8U),
-	states_(color.rows, vector<int>(color.cols)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
-	segment_depth_(color.rows, color.cols, CV_8U)
+	:BasicPottsModel(color, depth, color_space),
+	states_(color.rows, vector<int>(color.cols, -1))
 {
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
@@ -59,13 +53,8 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
 }
 
 PottsModel::PottsModel(const Mat &color, int color_space)
-	:start_frame_(1), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
-	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
-	num_result_gen_(-1), color_(color), depth_(color.rows, color.cols, CV_8U, Scalar::all(0)),
-	boundry_(color.rows, color.cols, CV_8U),
-	states_(color.rows, vector<int>(color.cols)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
-	segment_depth_(color.rows, color.cols, CV_8U)
+	:BasicPottsModel(color, Mat(color.rows, color.cols, CV_8U, Scalar::all(0)), color_space),
+	states_(color.rows, vector<int>(color.cols))
 {
 	RNG r;
 	for (int i = 0; i < color_.rows; i++)
@@ -76,14 +65,10 @@ PottsModel::PottsModel(const Mat &color, int color_space)
 }
 
 PottsModel::PottsModel(const Mat &color, const Mat &depth, PottsModel &last_frame, int color_space)             
-	:start_frame_(0), alpha_(kAlpha), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
-	t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
-	num_result_gen_(-1), color_(color), depth_(depth),
-	boundry_(color.rows, color.cols, CV_8U),
-	states_(color.rows, vector<int>(color.cols, -1)),
-	kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
-	segment_depth_(color.rows, color.cols, CV_8U)
+	:BasicPottsModel(color, depth, color_space),
+	states_(color.rows, vector<int>(color.cols, -1))
 {
+	start_frame_ =0;
 	GpuMat d_flowx, d_flowy;
 	Mat flowx, flowy;
 	Mat gary_last, gary;
@@ -603,8 +588,8 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 	else return 0;
 }
 
-GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
-	:PottsModel(color, depth, color_space)
-{
 
+GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
+	:BasicPottsModel(color, depth, color_space)
+{
 }
