@@ -1,6 +1,7 @@
 #include "PottsModel.hpp"
 #include "FastLabel.hpp"
 #include "OpticalFlow.cpp"
+#include "gpu_common.h"
 
 using namespace cv;
 using namespace std;
@@ -52,6 +53,7 @@ void rest_iterate(PottsModel *potts_model)
 
 int main()
 {
+	//mymain();
 	//!Single frame segment code
 	Mat img;
 	img = imread("start.png");
