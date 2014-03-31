@@ -1,14 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "Common.h"
-
-void add(float A[1000][1000], float B[1000][1000], float C[][1000])
-{
-	for(int i = 0; i < 1000; i++)
-		for(int j = 0; j < 1000; j++)
-			C[i][j] = A[i][j] + B[i][j];
-}
+#include "gpu_common.h"
 
 __global__ void VecAdd(float **A, float **B, float **C)
 {

@@ -1,4 +1,3 @@
-#include <cmath>
 #include <limits>
 #include <map>
 #include <algorithm>
@@ -602,4 +601,10 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 	}
 	else if (color_space_ == RGB) return norm(static_cast<Vec3s>(a) - static_cast<Vec3s>(b));
 	else return 0;
+}
+
+GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
+	:PottsModel(color, depth, color_space)
+{
+
 }

@@ -21,17 +21,17 @@ public:
     PottsModel(const cv::Mat &color, int color_space=RGB);
 	PottsModel(const cv::Mat &color, const cv::Mat &depth, PottsModel &last_frame, int color_space=RGB);
 	virtual ~PottsModel();
-	void ComputeDifference();
-	double PixelEnergy(int pi, int pj) const;
-	void MetropolisOnce();
+	virtual void ComputeDifference();
+	virtual double PixelEnergy(int pi, int pj) const;
+	virtual void MetropolisOnce();
 	bool iterable() const { return t_ >= min_t_; }
-	void GenStatesResult();
+	virtual void GenStatesResult();
 	void ShowStates(int milliseconds=0);
 	void SaveStates(const std::string &title="");
 	//update states of the model after label
-	void UpdateStates(const std::vector<std::vector<int> > &states);
-	void UpdateSegmentDepth();
-	void GenBoundry();
+	virtual void UpdateStates(const std::vector<std::vector<int> > &states);
+	virtual void UpdateSegmentDepth();
+	virtual void GenBoundry();
 	void ShowBoundry(int milliseconds=0) const
 	{
 		cv::imshow("PottsModel", boundry_);
@@ -41,15 +41,15 @@ public:
 	cv::Mat get_boundrymap() const { return boundry_; }
 	void set_temperature(double t) { t_ = t; }
 	void Freeze() { t_ = min_t_; }
-	void ShowDifference() const;
-	void HorizontalColor() const;
-	void VerticalColor() const;
-	void RightDiagColor() const;
-	void LeftDiagColor() const;
+	virtual void ShowDifference() const;
+	virtual void HorizontalColor() const;
+	virtual void VerticalColor() const;
+	virtual void RightDiagColor() const;
+	virtual void LeftDiagColor() const;
 	double Distance(const cv::Vec3b &a, const cv::Vec3b &b) const;
 	void printdepth(){ std::cout<< depth_ << std::endl; }
 	
-private:
+protected:
 	//the flag whether this frame is the start frame
 	int start_frame_;
 	//the factor for computing the averaged color vector difference of all
@@ -91,5 +91,26 @@ private:
 	//the farneback optical flow object
 	static cv::gpu::FarnebackOpticalFlow FarneCalc;
 };
+
+class GpuPottsModel : public PottsModel
+{
+public:
+	GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB);
+	GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, PottsModel &last_frame, int color_space=RGB);
+	virtual ~GpuPottsModel();
+	virtual void ComputeDifference();
+	virtual double PixelEnergy(int pi, int pj) const;
+	virtual void MetropolisOnce();
+	virtual void GenStatesResult();
+	virtual void UpdateStates(const std::vector<std::vector<int> > &states);
+	virtual void UpdateSegmentDepth();
+	virtual void GenBoundry();
+	virtual void ShowDifference() const;
+	virtual void HorizontalColor() const;
+	virtual void VerticalColor() const;
+	virtual void RightDiagColor() const;
+	virtual void LeftDiagColor() const;
+};
+
 #endif
 

@@ -53,7 +53,7 @@ void rest_iterate(PottsModel *potts_model)
 
 int main()
 {
-	mymain();
+	//mymain();
 	//!Single frame segment code
 	Mat img;
 	img = imread("start.png");
