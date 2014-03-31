@@ -30,7 +30,6 @@ public:
 		segment_depth_(color.rows, color.cols, CV_8U) {};
 	virtual ~BasicPottsModel() {};
 	virtual void ComputeDifference() = 0;
-	virtual double PixelEnergy(int pi, int pj) const = 0;
 	virtual void MetropolisOnce() = 0;
 	bool iterable() const { return t_ >= min_t_; }
 	cv::Mat get_boundrymap() const { return boundry_; }
@@ -76,6 +75,7 @@ public:
 	static cv::gpu::FarnebackOpticalFlow FarneCalc;
 	//TODO:the spin variable of each pixel is not declare
 protected:
+	virtual double PixelEnergy(int pi, int pj) const = 0;
 	//the neighbors of the computed pixel, {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}}
 	//4, 2, 6
 	//0,-1, 1
@@ -83,6 +83,7 @@ protected:
 	const Matx33i kPixel;
 	int color_space_;
 };
+
 
 class PottsModel : public BasicPottsModel
 {
@@ -93,7 +94,6 @@ public:
 	PottsModel(const cv::Mat &color, const cv::Mat &depth, PottsModel &last_frame, int color_space=RGB);
 	virtual ~PottsModel();
 	virtual void ComputeDifference();
-	virtual double PixelEnergy(int pi, int pj) const;
 	virtual void MetropolisOnce();
 	virtual void GenStatesResult();
 	void ShowStates(int milliseconds=0);
@@ -113,12 +113,14 @@ public:
 	virtual void VerticalColor() const;
 	virtual void RightDiagColor() const;
 	virtual void LeftDiagColor() const;
-	double Distance(const cv::Vec3b &a, const cv::Vec3b &b) const;
-	void printdepth(){ std::cout<< depth_ << std::endl; }
 	
 	//the spin variable of each pixel
 	std::vector<std::vector<int> > states_;
+protected:
+	virtual double PixelEnergy(int pi, int pj) const;
+	double Distance(const cv::Vec3b &a, const cv::Vec3b &b) const;
 };
+
 
 class GpuPottsModel : public BasicPottsModel
 {
