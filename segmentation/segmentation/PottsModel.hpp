@@ -7,7 +7,7 @@
 #include <list>
 #include <string>
 
-#include "opencv2\opencv.hpp"
+#include "opencv2/opencv.hpp"
 #include "opencv2/gpu/gpu.hpp"
 
 class BasicPottsModel
@@ -56,7 +56,7 @@ public:
 	//the Boltzman constant
 	const double kK;
 	//the J for the difference of depthes of pixels > 30cm
-	const int kMaxJ;
+	const double kMaxJ;
 	double mean_diff_;
 	//the variables used to control a result image whether to save
 	int num_result_;
