@@ -214,8 +214,11 @@ pip-log.txt
 #Mr Developer
 .mr.developer.cfg
 *.sln
-*.png
 *.vcxproj
 *.filters
 *.jpg
+*.png
+*.doc
+*.pdf
+*.zip
 *.gif

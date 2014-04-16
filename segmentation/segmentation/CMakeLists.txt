@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.8)
+project( Segmentation )
+find_package( OpenCV REQUIRED )
+AUX_SOURCE_DIRECTORY(. DIR_SRCS)
+ADD_EXECUTABLE(Segmentation ${DIR_SRCS})
+target_link_libraries( Segmentation ${OpenCV_LIBS} )
