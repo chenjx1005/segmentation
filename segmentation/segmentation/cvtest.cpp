@@ -59,7 +59,13 @@ int main()
 	img = imread("start.png");
 	Mat depth;
 	cvtColor(imread("startDepth.png"), depth, CV_BGR2GRAY);
-
+	
+	if (depth.isContinuous())
+	{
+		for (int i = 0; i < depth.rows; i++)
+			for (int j = 0; j < depth.cols; j++)
+				CV_Assert(depth.at<uchar>(i,j) == depth.data[depth.step*i+j]);
+	}
 	PottsModel *potts_model = new PottsModel(img, depth, PottsModel::RGB);
 	iterate(potts_model);
 	//!Single frame segment code end

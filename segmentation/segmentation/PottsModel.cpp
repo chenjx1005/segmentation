@@ -47,7 +47,7 @@ PottsModel::PottsModel(const Mat &color, const Mat &depth, int color_space)
 {
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
-			states_[i][j] = depth.at<char>(i, j);
+			states_[i][j] = depth.at<uchar>(i, j);
 	ComputeDifference();
 	//namedWindow("PottsModel");
 }
@@ -442,13 +442,13 @@ void PottsModel::UpdateSegmentDepth()
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
 		{
-			segment_depth[states_[i][j]] += depth_.at<char>(i, j);
+			segment_depth[states_[i][j]] += depth_.at<uchar>(i, j);
 			segment_count[states_[i][j]]++;
 		}
 	for (int i = 0; i < color_.rows; i++)
 		for (int j = 0; j < color_.cols; j++)
 		{
-			segment_depth_.at<char>(i, j) = segment_depth[states_[i][j]]/segment_count[states_[i][j]];
+			segment_depth_.at<uchar>(i, j) = segment_depth[states_[i][j]]/segment_count[states_[i][j]];
 		}
 }
 

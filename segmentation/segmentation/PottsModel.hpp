@@ -35,6 +35,12 @@ public:
 	cv::Mat get_boundrymap() const { return boundry_; }
 	void set_temperature(double t) { t_ = t; }
 	void Freeze() { t_ = min_t_; }
+	void ShowBoundry(int milliseconds=0) const
+	{
+		cv::imshow("PottsModel", boundry_);
+		cv::waitKey(milliseconds);
+	}
+	void SaveBoundry() const { cv::imwrite("boundry.jpg", boundry_); }
 	virtual void ShowDifference() const {};
 	virtual void HorizontalColor() const {};
 	virtual void VerticalColor() const {};
@@ -102,18 +108,11 @@ public:
 	virtual void UpdateStates(const std::vector<std::vector<int> > &states);
 	virtual void UpdateSegmentDepth();
 	virtual void GenBoundry();
-	void ShowBoundry(int milliseconds=0) const
-	{
-		cv::imshow("PottsModel", boundry_);
-		cv::waitKey(milliseconds);
-	}
-	void SaveBoundry() const { cv::imwrite("boundry.jpg", boundry_); }
 	virtual void ShowDifference() const;
 	virtual void HorizontalColor() const;
 	virtual void VerticalColor() const;
 	virtual void RightDiagColor() const;
 	virtual void LeftDiagColor() const;
-	
 	//the spin variable of each pixel
 	std::vector<std::vector<int> > states_;
 protected:
