@@ -19,7 +19,7 @@ public:
 	BasicPottsModel():
 		start_frame_(1), alpha_(1.0), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
 		t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
-		num_result_gen_(-1), 
+		num_result_gen_(-1),
 		kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(RGB) {};
 	BasicPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB):
 		start_frame_(1), alpha_(1.0), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
@@ -27,7 +27,15 @@ public:
 		num_result_gen_(-1), color_(color), depth_(depth),
 		boundry_(color.rows, color.cols, CV_8U),
 		kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(color_space),
-		segment_depth_(color.rows, color.cols, CV_8U) {};
+		segment_depth_(color.rows, color.cols, CV_8U) 
+		{
+			if(color_.size == depth_.size) rows_ = color_.rows, cols_ = color_.cols;
+			else
+			{
+				std::cout<<"color image and depth image size error!"<<std::endl;
+				exit(0);
+			}
+		};
 	virtual ~BasicPottsModel() {};
 	virtual void ComputeDifference() = 0;
 	virtual void MetropolisOnce() = 0;
@@ -63,15 +71,12 @@ public:
 	const double kK;
 	//the J for the difference of depthes of pixels > 30cm
 	const double kMaxJ;
-	double mean_diff_;
 	//the variables used to control a result image whether to save
 	int num_result_;
 	int num_result_gen_;
 	//init matrix, color and depth
 	cv::Mat color_;
 	cv::Mat depth_;
-	//init matrix, difference of neighbor pixels
-	cv::Mat diff_;
 	//the matrix used for showing
 	cv::Mat states_result_;
 	cv::Mat boundry_;
@@ -80,6 +85,9 @@ public:
 	//the farneback optical flow object
 	static cv::gpu::FarnebackOpticalFlow FarneCalc;
 	//TODO:the spin variable of each pixel is not declare
+	size_t rows_;
+	size_t cols_;
+
 protected:
 	virtual double PixelEnergy(int pi, int pj) const = 0;
 	//the neighbors of the computed pixel, {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}}
@@ -102,8 +110,8 @@ public:
 	virtual void ComputeDifference();
 	virtual void MetropolisOnce();
 	virtual void GenStatesResult();
-	void ShowStates(int milliseconds=0);
-	void SaveStates(const std::string &title="");
+	virtual void ShowStates(int milliseconds=0);
+	virtual void SaveStates(const std::string &title="");
 	//update states of the model after label
 	virtual void UpdateStates(const std::vector<std::vector<int> > &states);
 	virtual void UpdateSegmentDepth();
@@ -115,6 +123,8 @@ public:
 	virtual void LeftDiagColor() const;
 	//the spin variable of each pixel
 	std::vector<std::vector<int> > states_;
+	//init matrix, difference of neighbor pixels
+	cv::Mat diff_;
 protected:
 	virtual double PixelEnergy(int pi, int pj) const;
 	double Distance(const cv::Vec3b &a, const cv::Vec3b &b) const;
@@ -125,10 +135,16 @@ class GpuPottsModel : public BasicPottsModel
 {
 public:
 	GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB);
-	GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, PottsModel &last_frame, int color_space=RGB);
-	virtual ~GpuPottsModel() {};
+	//GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, PottsModel &last_frame, int color_space=RGB);
+	virtual ~GpuPottsModel();
+	virtual void ComputeDifference();
+	virtual void MetropolisOnce();
 
-	int **states_;
+	uchar *states_;
+	double (*diff_)[8];
+
+private:
+	virtual double PixelEnergy(int pi, int pj) const;
 };
 
 #endif

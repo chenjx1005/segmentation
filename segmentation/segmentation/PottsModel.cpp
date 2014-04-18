@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "PottsModel.hpp"
+#include "gpu_common.h"
 
 using namespace std;
 using namespace cv;
@@ -122,13 +123,12 @@ PottsModel::~PottsModel()
 void PottsModel::ComputeDifference()
 {
 	CV_Assert(color_.type() == CV_8UC3);
-	CV_Assert(color_.size == depth_.size);
 
 	//initialize diff matrix
 	int sz[3] = {color_.rows, color_.cols, 8};
 	diff_.create(3, sz, CV_64F);
 
-	double sum = 0, color_diff = 0;
+	double sum = 0, color_diff = 0, mean_diff_ = 0;
 	int count = 0, depth_diff = 0;
 	Vec3b gi, gj;
 	uchar di,dj;
@@ -592,4 +592,34 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
 	:BasicPottsModel(color, depth, color_space)
 {
+	if(depth.isContinuous())
+		states_ = depth.data;
+	else
+	{
+		cout<<"depth mat is not continuous! reload the depth image"<<endl;
+		exit(0);
+	}
+	ComputeDifference();
+}
+
+GpuPottsModel::~GpuPottsModel()
+{
+	delete [] diff_;
+}
+
+void GpuPottsModel::ComputeDifference()
+{
+	CV_Assert(color_.type() == CV_8UC3);
+
+	diff_ = new double[rows_ * cols_][8];
+	ComputeDifferenceWithCuda((const unsigned char (*)[3])color_.data, depth_.data, diff_, rows_, cols_);
+}
+
+void GpuPottsModel::MetropolisOnce()
+{
+}
+
+double GpuPottsModel::PixelEnergy(int pi, int pj) const
+{
+	return 0;
 }
