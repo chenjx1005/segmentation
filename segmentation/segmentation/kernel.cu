@@ -28,6 +28,19 @@ __global__ void VecAdd(float **A, float **B, float **C)
 		C[i][j] = A[i][j] + B[i][j];
 }
 
+__global__ void DifferenceKernel(const unsigned char (*color)[3], 
+									  const unsigned char *depth, 
+									  double (*diff)[8],
+									  size_t rows, 
+									  size_t cols,
+									  int (*record)[8]);
+
+__global__ void SumKernel(const double *diff,
+						  double *odiff,
+						  const int *record,
+						  unsigned int *orecord,
+						  size_t n);
+
 int mymain()
 {
 	clock_t t;
@@ -51,12 +64,7 @@ int mymain()
 	return 0;
 }
 
-__global__ void DifferenceKernel(const unsigned char (*color)[3], 
-									  const unsigned char *depth, 
-									  double (*diff)[8],
-									  size_t rows, 
-									  size_t cols,
-									  int (*record)[8]);
+
 
 cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3], 
 									  const unsigned char *depth, 
@@ -89,15 +97,37 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	dim3 dimGrid((cols + BLOCK_SIZE - 1)/dimBlock.x, (rows + BLOCK_SIZE - 1)/dimBlock.y);
 	DifferenceKernel<<<dimGrid, dimBlock>>>(d_color, d_depth, d_diff, rows, cols, d_record);
 
+	int block_sum_size = BLOCK_SIZE * BLOCK_SIZE;
+	size_t n = rows * cols * 8;
+	int block_sum_num = ((n + block_sum_size - 1) / block_sum_size + 1) / 2;
+	double *odiff;
+	unsigned int *orecord;
+	size_t sum_size = block_sum_num * sizeof(double);
+	size_t count_size = block_sum_num * sizeof(unsigned int);
+	cudaMalloc(&odiff, sum_size);
+	cudaMalloc(&orecord, count_size);
+	SumKernel<<<block_sum_num, block_sum_size>>>(d_diff, odiff, d_record, orecord, n);
+	
 	//Read diff from device memory
 	size = rows * cols * 8 * sizeof(double);
 	cudaMemcpy(diff, d_diff, size, cudaMemcpyDeviceToHost);
+	
+	//Read sum and count from device memory
+	double *cpu_sum = (double *)malloc(sum_size);
+	unsigned int *cpu_count = (unsigned int *)malloc(count_size);
+	cudaMemcpy(cpu_sum, odiff, sum_size, cudaMemcpyDeviceToHost);
+	cudaMemcpy(cpu_count, orecord, count_size, cudaMemcpyDeviceToHost);
 
 	//Free device memory
 	cudaFree(d_color);
 	cudaFree(d_depth);
 	cudaFree(d_diff);
 	cudaFree(d_record);
+	cudaFree(odiff);
+	cudaFree(orecord);
+	//Free host memory
+	free(cpu_sum);
+	free(cpu_count);
 
 	return cudaSetDevice(0);
 }
@@ -112,106 +142,107 @@ __global__ void DifferenceKernel(const unsigned char (*color)[3],
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int k = threadIdx.z;
+	int limit_i, limit_j;
+	int current = i * cols + j;
+	int next;
 	if (i < rows && j < cols)
 	{
 		switch (k)
 		{
 		case 0:
-			if(j==0)
-			{
-				record[i*cols+j][k] = 2;
-				break;
-			}
-			diff[i*cols + j][k] = CalDistance(color[i*cols+j], color[i*cols+j-1]);
-			if (abs(float(depth[i*cols+j] - depth[i*cols+j-1]))>30)
-				record[i*cols+j][k] = 1;
-			else
-				record[i*cols+j][k] = 0;
+			limit_i = -1;
+			limit_j = 0;
+			next = i*cols+j-1;
 			break;
 		case 1:
-			if(j==cols-1)
-			{
-				record[i*cols+j][k] = 2;
-				break;
-			}
-			diff[i*cols + j][k] = CalDistance(color[i*cols+j], color[i*cols+j+1]);
-			if (abs(float(depth[i*cols+j] - depth[i*cols+j+1]))>30)
-				record[i*cols+j][k] = 1;
-			else
-				record[i*cols+j][k] = 0;
+			limit_i = -1;
+			limit_j = cols-1;
+			next = i*cols+j+1;
 			break;
 		case 2:
-			if(i==0)
-			{
-				record[i*cols+j][k] = 2;
-				break;
-			}
-			diff[i*cols + j][k] = CalDistance(color[i*cols+j], color[(i-1)*cols+j]);
-			if (abs(float(depth[i*cols+j] - depth[(i-1)*cols+j]))>30)
-				record[i*cols+j][k] = 1;
-			else
-				record[i*cols+j][k] = 0;
+			limit_i = 0;
+			limit_j = -1;
+			next = (i-1)*cols+j;
 			break;
 		case 3:
-			if(i==rows-1)
-			{
-				record[i*cols+j][k] = 2;
-				break;
-			}
-			diff[i*cols + j][k] = CalDistance(color[i*cols+j], color[(i+1)*cols+j]);
-			if (abs(float(depth[i*cols+j] - depth[(i+1)*cols+j]))>30)
-				record[i*cols+j][k] = 1;
-			else
-				record[i*cols+j][k] = 0;
+			limit_i = rows-1;
+			limit_j = -1;
+			next = (i+1)*cols+j;
 			break;
 		case 4:
-			if(i==0 || j==0)
-			{
-				record[i*cols+j][k] = 2;
-				break;
-			}
-			diff[i*cols + j][k] = CalDistance(color[i*cols+j], color[(i-1)*cols+j-1]);
-			if (abs(float(depth[i*cols+j] - depth[(i-1)*cols+j-1]))>30)
-				record[i*cols+j][k] = 1;
-			else
-				record[i*cols+j][k] = 0;
+			limit_i = 0;
+			limit_j = 0;
+			next = (i-1)*cols+j-1;
 			break;
 		case 5:
-			if(i==rows-1 || j==cols-1)
-			{
-				record[i*cols+j][k] = 2;
-				break;
-			}
-			diff[i*cols + j][k] = CalDistance(color[i*cols+j], color[(i+1)*cols+j+1]);
-			if (abs(float(depth[i*cols+j] - depth[(i+1)*cols+j+1]))>30)
-				record[i*cols+j][k] = 1;
-			else
-				record[i*cols+j][k] = 0;
+			limit_i = rows-1;
+			limit_j = cols-1;
+			next = (i+1)*cols+j+1;
 			break;
 		case 6:
-			if(i==0 || j==cols-1)
-			{
-				record[i*cols+j][k] = 2;
-				break;
-			}
-			diff[i*cols + j][k] = CalDistance(color[i*cols+j], color[(i-1)*cols+j+1]);
-			if (abs(float(depth[i*cols+j] - depth[(i-1)*cols+j+1]))>30)
-				record[i*cols+j][k] = 1;
-			else
-				record[i*cols+j][k] = 0;
+			limit_i = 0;
+			limit_j = cols-1;
+			next = (i-1)*cols+j+1;
 			break;
 		case 7:
-			if(i==rows-1 || j==0)
-			{
-				record[i*cols+j][k] = 2;
-				break;
-			}
-			diff[i*cols + j][k] = CalDistance(color[i*cols+j], color[(i+1)*cols+j-1]);
-			if (abs(float(depth[i*cols+j] - depth[(i+1)*cols+j-1]))>30)
-				record[i*cols+j][k] = 1;
-			else
-				record[i*cols+j][k] = 0;
+			limit_i = rows-1;
+			limit_j = 0;
+			next = (i+1)*cols+j-1;
 			break;
 		}
+		if(i==limit_i || j==limit_j)
+		{
+			record[current][k] = 0;
+			diff[current][k] = 0;
+		}
+		else
+		{
+			diff[current][k] = CalDistance(color[current], color[next]);
+			if (abs(float(depth[current] - depth[next]))>30)
+				record[current][k] = -1;
+			else
+				record[current][k] = 1;
+		}
 	}
+}
+
+__global__ void SumKernel(const double *diff,
+						  double *odiff,
+						  const int *record,
+						  unsigned int *orecord, 
+						  size_t n)
+{
+	extern __shared__ double diffsum[];
+	extern __shared__ int count[];
+
+	unsigned int tid = threadIdx.x;
+	unsigned int i = blockIdx.x*(blockDim.x*2) + threadIdx.x;
+
+	double mysum, mycount;
+	if(i < n) 
+	{
+		mysum = diff[i];
+		mycount = abs(record[i]);
+		if(i + blockDim.x < n)
+		{
+			mysum += diff[i + blockDim.x];
+			mycount += abs(record[i + blockDim.x]);
+		}
+	}
+	else mysum = mycount = 0;
+	
+	diffsum[tid] = mysum;
+	count[tid] = mycount;
+	_syncthreads();
+
+	for(unsigned int s = blockDim.x/2; x > 0; x>>1)
+	{
+		if(tid < s)
+		{
+			diffsum[tid] += diffsum[tid + s];
+			count[tid] += abs(count[tid + s]);
+		}
+		_syncthreads();
+	}
+	if(tid == 0) odiff[blockIdx.x] = diffsum[0], orecord[blockIdx.x] = count[0];
 }
