@@ -106,7 +106,7 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	size_t count_size = block_sum_num * sizeof(unsigned int);
 	cudaMalloc(&odiff, sum_size);
 	cudaMalloc(&orecord, count_size);
-	SumKernel<<<block_sum_num, block_sum_size>>>(d_diff, odiff, d_record, orecord, n);
+	SumKernel<<<block_sum_num, block_sum_size>>>((const double *)d_diff, odiff, (const int *)d_record, orecord, n);
 	
 	//Read diff from device memory
 	size = rows * cols * 8 * sizeof(double);
@@ -233,16 +233,16 @@ __global__ void SumKernel(const double *diff,
 	
 	diffsum[tid] = mysum;
 	count[tid] = mycount;
-	_syncthreads();
+	__syncthreads();
 
-	for(unsigned int s = blockDim.x/2; x > 0; x>>1)
+	for(unsigned int s = blockDim.x/2; s > 0; s>>1)
 	{
 		if(tid < s)
 		{
 			diffsum[tid] += diffsum[tid + s];
 			count[tid] += abs(count[tid + s]);
 		}
-		_syncthreads();
+		__syncthreads();
 	}
 	if(tid == 0) odiff[blockIdx.x] = diffsum[0], orecord[blockIdx.x] = count[0];
 }
