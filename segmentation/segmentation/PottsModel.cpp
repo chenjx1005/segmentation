@@ -611,7 +611,7 @@ void GpuPottsModel::ComputeDifference()
 {
 	CV_Assert(color_.type() == CV_8UC3);
 
-	diff_ = new double[rows_ * cols_][8];
+	diff_ = new float[rows_ * cols_][8];
 	ComputeDifferenceWithCuda((const unsigned char (*)[3])color_.data, depth_.data, diff_, rows_, cols_);
 }
 

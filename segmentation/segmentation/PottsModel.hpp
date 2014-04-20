@@ -141,7 +141,7 @@ public:
 	virtual void MetropolisOnce();
 
 	uchar *states_;
-	double (*diff_)[8];
+	float (*diff_)[8];
 
 private:
 	virtual double PixelEnergy(int pi, int pj) const;

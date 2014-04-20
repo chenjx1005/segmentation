@@ -30,13 +30,13 @@ __global__ void VecAdd(float **A, float **B, float **C)
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
 									  const unsigned char *depth, 
-									  double (*diff)[8],
+									  float (*diff)[8],
 									  size_t rows, 
 									  size_t cols,
 									  int (*record)[8]);
 
-__global__ void SumKernel(const double *diff,
-						  double *odiff,
+__global__ void SumKernel(const float *diff,
+						  float *odiff,
 						  const int *record,
 						  unsigned int *orecord,
 						  size_t n);
@@ -68,10 +68,11 @@ int mymain()
 
 cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3], 
 									  const unsigned char *depth, 
-									  double (*diff)[8],
+									  float (*diff)[8],
 									  size_t rows, 
 									  size_t cols)
 {
+	clock_t t = clock(), t2;
 	//load color and depth to device memory
 	unsigned char (*d_color)[3];
 	size_t size = rows*cols*3;
@@ -83,8 +84,8 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	cudaMemcpy(d_depth, depth, size, cudaMemcpyHostToDevice);
 
 	//Allocate diff in device memory
-	double (*d_diff)[8];
-	size = rows * cols * 8 * sizeof(double);
+	float (*d_diff)[8];
+	size = rows * cols * 8 * sizeof(float);
 	cudaMalloc(&d_diff, size);
 
 	//Allocate depth > 30 pixels record in device memory
@@ -95,32 +96,45 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	//Invoke kernel
 	dim3 dimBlock(BLOCK_SIZE/2, BLOCK_SIZE/2, 8);
 	dim3 dimGrid((cols + BLOCK_SIZE - 1)/dimBlock.x, (rows + BLOCK_SIZE - 1)/dimBlock.y);
+	t2 = clock();
+	printf("GPU Setup time = %lfms\n", (double)(t2-t)/CLOCKS_PER_SEC*1000);
 	DifferenceKernel<<<dimGrid, dimBlock>>>(d_color, d_depth, d_diff, rows, cols, d_record);
-
-	int block_sum_size = BLOCK_SIZE * BLOCK_SIZE;
-	size_t n = rows * cols * 8;
-	int block_sum_num = ((n + block_sum_size - 1) / block_sum_size + 1) / 2;
-	double *odiff;
-	unsigned int *orecord;
-	size_t sum_size = block_sum_num * sizeof(double);
-	size_t count_size = block_sum_num * sizeof(unsigned int);
-	cudaMalloc(&odiff, sum_size);
-	cudaMalloc(&orecord, count_size);
-	SumKernel<<<block_sum_num, block_sum_size>>>((const double *)d_diff, odiff, (const int *)d_record, orecord, n);
 	
 	//Read diff from device memory
-	size = rows * cols * 8 * sizeof(double);
+	size = rows * cols * 8 * sizeof(float);
 	cudaMemcpy(diff, d_diff, size, cudaMemcpyDeviceToHost);
 	
-	//Read sum and count from device memory
-	double *cpu_sum = (double *)malloc(sum_size);
-	unsigned int *cpu_count = (unsigned int *)malloc(count_size);
-	cudaMemcpy(cpu_sum, odiff, sum_size, cudaMemcpyDeviceToHost);
-	cudaMemcpy(cpu_count, orecord, count_size, cudaMemcpyDeviceToHost);
-
 	//Free device memory
 	cudaFree(d_color);
 	cudaFree(d_depth);
+	
+	int block_sum_size = BLOCK_SIZE * BLOCK_SIZE;
+	size_t n = rows * cols * 8;
+	int block_sum_num = ((n + block_sum_size - 1) / block_sum_size + 1) / 2;
+	float *odiff;
+	unsigned int *orecord;
+	size_t sum_size = block_sum_num * sizeof(float);
+	size_t count_size = block_sum_num * sizeof(unsigned int);
+	cudaMalloc(&odiff, sum_size);
+	cudaMalloc(&orecord, count_size);
+	SumKernel<<<block_sum_num, block_sum_size>>>((const float *)d_diff, odiff, (const int *)d_record, orecord, n);
+
+	//Read sum and count from device memory
+	float *cpu_sum = (float *)malloc(sum_size);
+	unsigned int *cpu_count = (unsigned int *)malloc(count_size);
+	cudaMemcpy(cpu_count, orecord, count_size, cudaMemcpyDeviceToHost);
+	cudaMemcpy(cpu_sum, odiff, sum_size, cudaMemcpyDeviceToHost);
+
+	//compute sum and mean
+	int i, count = 0;
+	float sum = 0;
+	for(i = 0; i < block_sum_num; i++) sum += cpu_sum[i], count += cpu_count[i];
+	float mean = sum / count;
+	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
+
+	t = clock();
+	printf("GPU Compute time = %lfms\n", (double)(t-t2)/CLOCKS_PER_SEC*1000);
+
 	cudaFree(d_diff);
 	cudaFree(d_record);
 	cudaFree(odiff);
@@ -129,12 +143,15 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	free(cpu_sum);
 	free(cpu_count);
 
+	t2 = clock();
+	printf("GPU free time = %lfms\n", (double)(t2-t)/CLOCKS_PER_SEC*1000);
+
 	return cudaSetDevice(0);
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
 					  const unsigned char *depth, 
-					  double (*diff)[8],
+					  float (*diff)[8],
 					  size_t rows, 
 					  size_t cols,
 					  int (*record)[8])
@@ -145,6 +162,7 @@ __global__ void DifferenceKernel(const unsigned char (*color)[3],
 	int limit_i, limit_j;
 	int current = i * cols + j;
 	int next;
+	float val=0;
 	if (i < rows && j < cols)
 	{
 		switch (k)
@@ -197,7 +215,8 @@ __global__ void DifferenceKernel(const unsigned char (*color)[3],
 		}
 		else
 		{
-			diff[current][k] = CalDistance(color[current], color[next]);
+			val = CalDistance(color[current], color[next]);
+			diff[current][k] = val;
 			if (abs(float(depth[current] - depth[next]))>30)
 				record[current][k] = -1;
 			else
@@ -206,19 +225,20 @@ __global__ void DifferenceKernel(const unsigned char (*color)[3],
 	}
 }
 
-__global__ void SumKernel(const double *diff,
-						  double *odiff,
+__global__ void SumKernel(const float *diff,
+						  float *odiff,
 						  const int *record,
 						  unsigned int *orecord, 
 						  size_t n)
 {
-	extern __shared__ double diffsum[];
-	extern __shared__ int count[];
+	__shared__ float diffsum[BLOCK_SIZE * BLOCK_SIZE];
+	__shared__ int count[BLOCK_SIZE * BLOCK_SIZE];
 
 	unsigned int tid = threadIdx.x;
 	unsigned int i = blockIdx.x*(blockDim.x*2) + threadIdx.x;
 
-	double mysum, mycount;
+	float mysum;
+	int mycount;
 	if(i < n) 
 	{
 		mysum = diff[i];
@@ -231,11 +251,11 @@ __global__ void SumKernel(const double *diff,
 	}
 	else mysum = mycount = 0;
 	
-	diffsum[tid] = mysum;
 	count[tid] = mycount;
+	diffsum[tid] = mysum;
 	__syncthreads();
 
-	for(unsigned int s = blockDim.x/2; s > 0; s>>1)
+	for(unsigned int s = blockDim.x/2; s > 0; s>>=1)
 	{
 		if(tid < s)
 		{
@@ -244,5 +264,9 @@ __global__ void SumKernel(const double *diff,
 		}
 		__syncthreads();
 	}
-	if(tid == 0) odiff[blockIdx.x] = diffsum[0], orecord[blockIdx.x] = count[0];
+	if(tid == 0)
+	{
+		odiff[blockIdx.x] = diffsum[0];
+		orecord[blockIdx.x] = count[0];
+	}
 }
