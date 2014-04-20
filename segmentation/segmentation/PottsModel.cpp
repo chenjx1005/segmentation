@@ -2,6 +2,8 @@
 #include <map>
 #include <algorithm>
 
+#include <time.h>
+
 #include "PottsModel.hpp"
 #include "gpu_common.h"
 
@@ -122,6 +124,7 @@ PottsModel::~PottsModel()
 
 void PottsModel::ComputeDifference()
 {
+	clock_t t = clock(), t2;
 	CV_Assert(color_.type() == CV_8UC3);
 
 	//initialize diff matrix
@@ -242,14 +245,20 @@ void PottsModel::ComputeDifference()
 		}
 	}
 	mean_diff_ = alpha_ * sum / count;
+	t2 = clock();
+	printf("CPU Compute time = %lfms\n", (double)(t2-t)/CLOCKS_PER_SEC*1000);
 	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean_diff_, alpha_);
 	if (fabs(mean_diff_) >= EPSILON)
 		diff_ = diff_ * (1 / mean_diff_) - Scalar::all(1);
 	else diff_ -= Scalar::all(1);
+	t = clock();
+	printf("CPU Compute time = %lfms\n", (double)(t-t2)/CLOCKS_PER_SEC*1000);
 	for (list<Vec3s>::const_iterator it = later_update.begin(); it != later_update.end(); it++)
 	{
 		diff_.at<double>((*it)[0], (*it)[1], (*it)[2]) = kMaxJ;
 	}
+	t2 = clock();
+	printf("CPU Compute time = %lfms\n", (double)(t2-t)/CLOCKS_PER_SEC*1000);
 }
 
 double PottsModel::PixelEnergy(int pi, int pj) const

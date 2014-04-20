@@ -108,6 +108,9 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	cudaFree(d_color);
 	cudaFree(d_depth);
 	
+	printf("GPU difference kernel time = %lfms\n", (double)(clock()-t2)/CLOCKS_PER_SEC*1000);
+
+	//Compute Block Count and Sum
 	int block_sum_size = BLOCK_SIZE * BLOCK_SIZE;
 	size_t n = rows * cols * 8;
 	int block_sum_num = ((n + block_sum_size - 1) / block_sum_size + 1) / 2;
@@ -128,12 +131,13 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	//compute sum and mean
 	int i, count = 0;
 	float sum = 0;
-	for(i = 0; i < block_sum_num; i++) sum += cpu_sum[i], count += cpu_count[i];
-	float mean = sum / count;
-	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
-
+	//unsigned int *cpu_count = (unsigned int *)malloc(rows*cols*8*sizeof(int));
+	//cudaMemcpy(cpu_count, d_record, rows * cols * 8 * sizeof(int), cudaMemcpyDeviceToHost);
+	//for(i = 0; i < block_sum_num; i++) sum += cpu_sum[i], count += cpu_count[i];
+	//float mean = sum / count;
 	t = clock();
 	printf("GPU Compute time = %lfms\n", (double)(t-t2)/CLOCKS_PER_SEC*1000);
+	//printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
 
 	cudaFree(d_diff);
 	cudaFree(d_record);
@@ -142,9 +146,6 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	//Free host memory
 	free(cpu_sum);
 	free(cpu_count);
-
-	t2 = clock();
-	printf("GPU free time = %lfms\n", (double)(t2-t)/CLOCKS_PER_SEC*1000);
 
 	return cudaSetDevice(0);
 }
