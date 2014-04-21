@@ -6,8 +6,9 @@
 
 extern "C" void time_print(char *info, int flag=1);
 
-extern "C" int mymain();
-extern "C" cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3], const unsigned char *depth, float (*diff)[8], size_t rows, size_t cols);
+extern "C" cudaError_t CudaSetup(size_t rows, size_t cols);
+extern "C" void CudaRelease();
+extern "C" void ComputeDifferenceWithCuda(const unsigned char (*color)[3], const unsigned char *depth, float (*diff)[8], size_t rows, size_t cols);
 
 
 #endif

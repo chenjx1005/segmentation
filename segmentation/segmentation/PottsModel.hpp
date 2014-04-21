@@ -89,7 +89,6 @@ public:
 	size_t cols_;
 
 protected:
-	virtual double PixelEnergy(int pi, int pj) const = 0;
 	//the neighbors of the computed pixel, {{4, 2, 6}, {0, -1, 1}, {7, 3 ,5}}
 	//4, 2, 6
 	//0,-1, 1
@@ -126,7 +125,7 @@ public:
 	//init matrix, difference of neighbor pixels
 	cv::Mat diff_;
 protected:
-	virtual double PixelEnergy(int pi, int pj) const;
+	double PixelEnergy(int pi, int pj) const;
 	double Distance(const cv::Vec3b &a, const cv::Vec3b &b) const;
 };
 
