@@ -2,30 +2,23 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <float.h>
 #include "gpu_common.h"
 
 #define BLOCK_SIZE 16
+#define MAX_J 250.0
+
+void time_print(char *info, int flag)
+{
+	static clock_t t = clock();
+	if(flag)
+		printf("%s run time is %f ms\n", info, (clock() - (float)t)/CLOCKS_PER_SEC * 1000);
+	t = clock();
+}
 
 __device__ float CalDistance(const unsigned char a[3], const unsigned char b[3])
 {
 	return sqrt(pow(float(a[0] - b[0]),2) + pow(float(a[1] - b[1]),2) + pow(float(a[2] - b[2]),2));
-}
-
-__global__ void MatCopy(int *dst, const unsigned char *src, int step, int size)
-{
-	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	int j = blockIdx.y * blockDim.y + threadIdx.y;
-	size_t s = i * step + j;
-	if (s < size)
-		dst[s] = src[s];
-}
-
-__global__ void VecAdd(float **A, float **B, float **C)
-{
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-	int j = blockIdx.y * blockDim.y + threadIdx.y;
-    if (i < 1000 && j < 1000)
-		C[i][j] = A[i][j] + B[i][j];
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
@@ -40,6 +33,8 @@ __global__ void SumKernel(const float *diff,
 						  const int *record,
 						  unsigned int *orecord,
 						  size_t n);
+
+__global__ void DecorateDiff(float *diff, const int *record, float mean, float max_j);
 
 int mymain()
 {
@@ -56,7 +51,6 @@ int mymain()
 	dim3 threadsPerBlock(16,16);
 	dim3 numBlocks((1000+16-1)/threadsPerBlock.x, (1000+16-1)/threadsPerBlock.y);
 	t = clock();
-	MatCopy<<<numBlocks, threadsPerBlock>>>(d_C, d_A, 10, 1000);
 	t = clock() - t;
 	cudaMemcpy(b, d_C, 1000*sizeof(int), cudaMemcpyDeviceToHost);
 	for(i = 0; i < 1000; i++) printf("%d ",b[i]);
@@ -72,7 +66,7 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 									  size_t rows, 
 									  size_t cols)
 {
-	clock_t t = clock(), t2;
+	time_print("", 0);
 	//load color and depth to device memory
 	unsigned char (*d_color)[3];
 	size_t size = rows*cols*3;
@@ -92,23 +86,18 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	int (*d_record)[8];
 	size = rows * cols * 8 * sizeof(int);
 	cudaMalloc(&d_record, size);
+	time_print("GPU setup");
 
 	//Invoke kernel
 	dim3 dimBlock(BLOCK_SIZE/2, BLOCK_SIZE/2, 8);
 	dim3 dimGrid((cols + BLOCK_SIZE - 1)/dimBlock.x, (rows + BLOCK_SIZE - 1)/dimBlock.y);
-	t2 = clock();
-	printf("GPU Setup time = %lfms\n", (double)(t2-t)/CLOCKS_PER_SEC*1000);
 	DifferenceKernel<<<dimGrid, dimBlock>>>(d_color, d_depth, d_diff, rows, cols, d_record);
-	
-	//Read diff from device memory
-	size = rows * cols * 8 * sizeof(float);
-	cudaMemcpy(diff, d_diff, size, cudaMemcpyDeviceToHost);
 	
 	//Free device memory
 	cudaFree(d_color);
 	cudaFree(d_depth);
 	
-	printf("GPU difference kernel time = %lfms\n", (double)(clock()-t2)/CLOCKS_PER_SEC*1000);
+	time_print("GPU difference kernel");
 
 	//Compute Block Count and Sum
 	int block_sum_size = BLOCK_SIZE * BLOCK_SIZE;
@@ -131,13 +120,21 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	//compute sum and mean
 	int i, count = 0;
 	float sum = 0;
-	//unsigned int *cpu_count = (unsigned int *)malloc(rows*cols*8*sizeof(int));
-	//cudaMemcpy(cpu_count, d_record, rows * cols * 8 * sizeof(int), cudaMemcpyDeviceToHost);
-	//for(i = 0; i < block_sum_num; i++) sum += cpu_sum[i], count += cpu_count[i];
-	//float mean = sum / count;
-	t = clock();
-	printf("GPU Compute time = %lfms\n", (double)(t-t2)/CLOCKS_PER_SEC*1000);
-	//printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
+	for(i = 0; i < block_sum_num; i++) sum += cpu_sum[i], count += cpu_count[i];
+	float mean = sum / count;
+	time_print("GPU Compute Sum and Mean");
+	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
+
+	//Decorate diff
+	if (mean < FLT_EPSILON) mean = 1.0;
+	int dec_num = (n + block_sum_size - 1) / block_sum_size;
+	DecorateDiff<<<dec_num, block_sum_size>>>((float *)d_diff, (const int *)d_record, mean, MAX_J);
+
+	//Read diff from device memory
+	size = rows * cols * 8 * sizeof(float);
+	cudaMemcpy(diff, d_diff, size, cudaMemcpyDeviceToHost);
+
+	time_print("GPU DECORATE");
 
 	cudaFree(d_diff);
 	cudaFree(d_record);
@@ -146,6 +143,8 @@ cudaError_t ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	//Free host memory
 	free(cpu_sum);
 	free(cpu_count);
+
+	time_print("GPU Free");
 
 	return cudaSetDevice(0);
 }
@@ -270,4 +269,13 @@ __global__ void SumKernel(const float *diff,
 		odiff[blockIdx.x] = diffsum[0];
 		orecord[blockIdx.x] = count[0];
 	}
+}
+
+__global__ void DecorateDiff(float *diff, const int *record, float mean, float max_j)
+{
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	if(record[i] == 1)
+		diff[i] = diff[i] * (1.0 / mean) - 1.0;
+	else if(record[i] == -1)
+		diff[i] = max_j;
 }

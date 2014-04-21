@@ -124,9 +124,8 @@ PottsModel::~PottsModel()
 
 void PottsModel::ComputeDifference()
 {
-	clock_t t = clock(), t2;
 	CV_Assert(color_.type() == CV_8UC3);
-
+	time_print("", 0);
 	//initialize diff matrix
 	int sz[3] = {color_.rows, color_.cols, 8};
 	diff_.create(3, sz, CV_64F);
@@ -245,20 +244,17 @@ void PottsModel::ComputeDifference()
 		}
 	}
 	mean_diff_ = alpha_ * sum / count;
-	t2 = clock();
-	printf("CPU Compute time = %lfms\n", (double)(t2-t)/CLOCKS_PER_SEC*1000);
+	time_print("CPU Compute");
 	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean_diff_, alpha_);
 	if (fabs(mean_diff_) >= EPSILON)
 		diff_ = diff_ * (1 / mean_diff_) - Scalar::all(1);
 	else diff_ -= Scalar::all(1);
-	t = clock();
-	printf("CPU Compute time = %lfms\n", (double)(t-t2)/CLOCKS_PER_SEC*1000);
+	time_print("CPU mean");
 	for (list<Vec3s>::const_iterator it = later_update.begin(); it != later_update.end(); it++)
 	{
 		diff_.at<double>((*it)[0], (*it)[1], (*it)[2]) = kMaxJ;
 	}
-	t2 = clock();
-	printf("CPU Compute time = %lfms\n", (double)(t2-t)/CLOCKS_PER_SEC*1000);
+	time_print("CPU Kmaxj");
 }
 
 double PottsModel::PixelEnergy(int pi, int pj) const
