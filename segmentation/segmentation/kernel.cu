@@ -7,6 +7,7 @@
 
 #define BLOCK_SIZE 16
 #define MAX_J 250.0
+#define SPIN 256
 
 static unsigned char (*d_color)[3] = 0;
 static unsigned char *d_depth = 0;
@@ -30,6 +31,11 @@ __device__ float CalDistance(const unsigned char a[3], const unsigned char b[3])
 	return sqrt(pow(float(a[0] - b[0]),2) + pow(float(a[1] - b[1]),2) + pow(float(a[2] - b[2]),2));
 }
 
+__device__ float PixelEnergy(const float diff[8], const unsigned char states[8], unsigned char s)
+{
+
+}
+
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
 									  const unsigned char *depth, 
 									  float (*diff)[8],
@@ -45,7 +51,7 @@ __global__ void SumKernel(const float *diff,
 
 __global__ void DecorateDiff(float *diff, const int *record, float mean, float max_j);
 
-
+__global__ void Metropolis(const float (*diff)[8], const unsigned char (*states)[8], int x, int y, int rows, int cols);
 
 cudaError_t CudaSetup(size_t rows, size_t cols)
 {
@@ -325,4 +331,29 @@ __global__ void DecorateDiff(float *diff, const int *record, float mean, float m
 		diff[i] = diff[i] * (1.0 / mean) - 1.0;
 	else if(record[i] == -1)
 		diff[i] = max_j;
+}
+
+__global__ void Metropolis(const float (*diff)[8], const unsigned char (*states)[8], int x, int y, int rows, int cols)
+{
+	int i,j;
+	int p_i = blockIdx.y * blockDim.y + threadIdx.y;
+	int p_j = blockIdx.x * blockDim.x + threadIdx.x;
+
+	//Compute real position
+	p_i = x + 2 * p_i;
+	p_j = y + 2 * p_j;
+
+	//Read global memory into thread
+	float d[8];
+	unsigned char s[8];
+	for(i = 0; i < 8; i++)
+	{
+		d[i] = diff[p_i*cols + p_j][i];
+		s[i] = states[p_i*cols + p_j][i];
+	}
+	
+	//Iterate 9 times
+	unsigned char min_spin = ;
+	float min_energy = FLT_MAX;
+	for(
 }
