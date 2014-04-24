@@ -623,6 +623,8 @@ void GpuPottsModel::ComputeDifference()
 void GpuPottsModel::MetropolisOnce()
 {
 	MetropolisOnceWithCuda(t_, states_, rows_, cols_); 
+	t_ *= a_c_;
+	num_result_++;
 }
 
 double GpuPottsModel::PixelEnergy(int pi, int pj) const
@@ -641,7 +643,8 @@ void GpuPottsModel::GenStatesResult()
 		{
 			states = states_[i * cols_ + j];
 			//map the state to the result array
-			Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
+			//Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
+			Vec3b c(static_cast<uchar>(states * 0.6), 180, 230);
 			//if the state is num_spin_ - 1, the pixel is on the boundry line.
 			//so use black
 			if (states == num_spin_ - 1) c[2] = 0;

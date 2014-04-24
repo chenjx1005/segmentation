@@ -62,8 +62,11 @@ int main()
 	CudaSetup(img.rows, img.cols);
 	GpuPottsModel m(img, depth);
 	//m.ShowStates();
-	m.MetropolisOnce();
-	m.ShowStates();
+	while(m.iterable())
+	{	
+		m.MetropolisOnce();
+		m.ShowStates();
+	}
 	m.SaveStates("GPUstates.jpg");
 	CudaRelease();
 
