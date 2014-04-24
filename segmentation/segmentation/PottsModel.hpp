@@ -138,6 +138,9 @@ public:
 	virtual ~GpuPottsModel();
 	virtual void ComputeDifference();
 	virtual void MetropolisOnce();
+	virtual void GenStatesResult();
+	virtual void ShowStates(int milliseconds=0);
+	virtual void SaveStates(const std::string &title="");
 
 	uchar *states_;
 	float (*diff_)[8];

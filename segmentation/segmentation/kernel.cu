@@ -8,6 +8,7 @@
 #define BLOCK_SIZE 16
 #define MAX_J 250.0
 #define SPIN 256
+#define kK = 1.3806488e-4
 
 static unsigned char (*d_color)[3] = 0;
 static unsigned char *d_depth = 0;
@@ -31,9 +32,15 @@ __device__ float CalDistance(const unsigned char a[3], const unsigned char b[3])
 	return sqrt(pow(float(a[0] - b[0]),2) + pow(float(a[1] - b[1]),2) + pow(float(a[2] - b[2]),2));
 }
 
-__device__ float PixelEnergy(const float diff[8], const unsigned char states[8], unsigned char s)
-{
+__device__ unsigned int RNG(unsigned int seed)
+{   
+    unsigned int m_w = seed;
+    unsigned int m_z = 40;
 
+    m_z = 36969 * (m_z & 65535) + (m_z >> 16);
+    m_w = 18000 * (m_w & 65535) + (m_w >> 16);
+
+    return (m_z << 16) + m_w;  /* 32-bit result */
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
@@ -51,7 +58,7 @@ __global__ void SumKernel(const float *diff,
 
 __global__ void DecorateDiff(float *diff, const int *record, float mean, float max_j);
 
-__global__ void Metropolis(const float (*diff)[8], const unsigned char (*states)[8], int x, int y, int rows, int cols);
+__global__ void Metropolis(const float (*diff)[8], unsigned char *states, int x, int y, int rows, int cols, float t);
 
 cudaError_t CudaSetup(size_t rows, size_t cols)
 {
@@ -202,6 +209,32 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	time_print("GPU DECORATE");
 }
 
+void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
+{
+	unsigned char *d_states;
+	cudaMalloc(&d_states, rows*cols);
+	cudaMemcpy(d_states, states, rows*cols, cudaMemcpyHostToDevice);
+
+	dim3 block_num(8,8,8);
+	dim3 grid_num(((cols+1)/2+7)/8, ((rows+1)/2+7)/8, 1); 
+	time_print("",0);
+	cudaError_t err1;
+	err1=cudaGetLastError();
+	printf("error code =%d , %s \n",err1,cudaGetErrorString(err1));
+	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 0, 0, rows, cols, t); 
+	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 0, 1, rows, cols, t);
+	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 0, rows, cols, t);
+	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 1, rows, cols, t);
+	
+	err1=cudaGetLastError();
+	printf("error code =%d , %s \n",err1,cudaGetErrorString(err1));
+	time_print("Metropolis");
+
+	cudaMemcpy(states, d_states, rows*cols, cudaMemcpyDeviceToHost);
+
+	cudaFree(d_states);
+}
+
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
 					  const unsigned char *depth, 
 					  float (*diff)[8],
@@ -333,27 +366,92 @@ __global__ void DecorateDiff(float *diff, const int *record, float mean, float m
 		diff[i] = max_j;
 }
 
-__global__ void Metropolis(const float (*diff)[8], const unsigned char (*states)[8], int x, int y, int rows, int cols)
+__global__ void Metropolis(const float (*diff)[8], unsigned char *states, int x, int y, int rows, int cols, float t)
 {
-	int i,j;
+	__shared__ float energy[8][8][8]; 
+
+	const int P[8][2] = {{0,-1}, {0,1}, {-1,0}, {1,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}};
+	int i;
 	int p_i = blockIdx.y * blockDim.y + threadIdx.y;
 	int p_j = blockIdx.x * blockDim.x + threadIdx.x;
+	int z = threadIdx.z;
+
+	int b_i = threadIdx.y;
+	int b_j = threadIdx.x;
 
 	//Compute real position
-	p_i = x + 2 * p_i;
-	p_j = y + 2 * p_j;
+	p_i = x + 2 * b_i;
+	p_j = y + 2 * b_j;
 
-	//Read global memory into thread
-	float d[8];
-	unsigned char s[8];
-	for(i = 0; i < 8; i++)
-	{
-		d[i] = diff[p_i*cols + p_j][i];
-		s[i] = states[p_i*cols + p_j][i];
-	}
+	//Read global memory position into thread
+	const float *d = diff[p_i*cols + p_j];
 	
-	//Iterate 9 times
-	unsigned char min_spin = ;
-	float min_energy = FLT_MAX;
-	for(
+	int ki, kj;
+	ki = p_i+P[z][0];
+	kj = p_j+P[z][1];
+	if (ki < 0 || ki >= rows || kj < 0 || kj >= cols)
+	{
+		energy[b_i][b_j][z] = FLT_MAX;
+	}
+	else
+	{
+		unsigned char s = states[ki * cols + kj];
+		float e = 0;
+		for (i = 0; i < 8; i++)
+			{
+				ki = p_i + P[i][0];
+				kj = p_j + P[i][1];
+				if (ki < 0 || ki >= rows || kj < 0 || kj >= cols) continue;
+				e += d[i] * (s == states[ki*cols+kj]);
+			}
+		energy[b_i][b_j][z] = e;
+	}
+	__syncthreads();
+
+	//find min energy
+	if(z == 0)
+	{
+		unsigned int seed = b_i * b_j *z;
+		unsigned char current_s = states[p_i * cols + p_j];
+		float current_e = 0;
+		for (i = 0; i < 8; i++)
+		{
+			ki = p_i + P[i][0];
+			kj = p_j + P[i][1];
+			if (ki < 0 || ki >= rows || kj < 0 || kj >= cols) continue;
+			current_e += d[i] * (current_s == states[ki*cols+kj]);
+		}
+		float min_e = 0;
+		unsigned char min_s;
+		for(i = 0; i < 8; i++)
+		{
+			int compare = 2;
+			if (energy[b_i][b_j][i] < min_e)
+			{
+				min_e = energy[b_i][b_j][i];
+				min_s = states[(p_i+P[i][0])*cols + p_j+P[i][1]];
+				compare = 2;
+			}
+			else if (energy[b_i][b_j][i] == min_e)
+			{
+				seed = RNG(seed);
+				if (seed % 100 / 100.0 < 1.0 / compare)
+				{
+					min_s = states[(p_i+P[i][0])*cols + p_j+P[i][1]];
+					compare++;
+				}
+			}
+		}
+		float diff_e = min_e - current_e;
+		seed = RNG(seed);
+		if (diff_e <= 0 || (seed % 1000) / 1000.0 < exp(-1 *fabs(diff_e)) / (t * 1.38064e-4))
+		{
+			if (min_e < FLT_EPSILON)
+			{
+				//TODO:
+				min_s = (unsigned char)RNG(seed);
+			}
+				states[p_i*cols + p_j] = min_s;
+		}
+	}
 }

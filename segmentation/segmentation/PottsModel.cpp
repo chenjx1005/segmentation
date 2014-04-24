@@ -622,9 +622,55 @@ void GpuPottsModel::ComputeDifference()
 
 void GpuPottsModel::MetropolisOnce()
 {
+	MetropolisOnceWithCuda(t_, states_, rows_, cols_); 
 }
 
 double GpuPottsModel::PixelEnergy(int pi, int pj) const
 {
 	return 0;
+}
+
+void GpuPottsModel::GenStatesResult()
+{
+	if (num_result_gen_ >= num_result_) return;
+	int states;
+	Mat hsv(rows_, cols_, CV_8UC3);
+	MatIterator_<Vec3b> it = hsv.begin<Vec3b>(), end = hsv.end<Vec3b>();
+	for (int i = 0; i < rows_; i++)
+		for (int j = 0; j < cols_; j++)
+		{
+			states = states_[i * cols_ + j];
+			//map the state to the result array
+			Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
+			//if the state is num_spin_ - 1, the pixel is on the boundry line.
+			//so use black
+			if (states == num_spin_ - 1) c[2] = 0;
+			(*it) = c;
+			it++;
+		}
+	cvtColor(hsv, states_result_, CV_HSV2BGR);
+	num_result_gen_ = num_result_;
+}
+
+void GpuPottsModel::ShowStates(int milliseconds)
+{
+	GenStatesResult();
+	imshow("GpuPottsModel", states_result_);
+	waitKey(milliseconds);
+}
+
+void GpuPottsModel::SaveStates(const string &title)
+{
+	GenStatesResult();
+	if (title == "")
+	{
+		char result_name[20];
+		sprintf(result_name, "GPUresult%d.jpg", num_result_);
+		string s(result_name);
+		imwrite(s, states_result_);
+	}
+	else
+	{
+		imwrite(title, states_result_);
+	}
 }
