@@ -20,6 +20,9 @@ static float *odiff = 0;
 static unsigned int *orecord = 0;
 static float *cpu_sum = 0;
 static unsigned int *cpu_count = 0;
+static unsigned char *d_states = 0;
+static curandState *devStates = 0;
+static unsigned int *rand_value = 0;
 
 void time_print(char *info, int flag)
 {
@@ -34,18 +37,18 @@ __device__ float CalDistance(const unsigned char a[3], const unsigned char b[3])
 	return sqrt(pow(float(a[0] - b[0]),2) + pow(float(a[1] - b[1]),2) + pow(float(a[2] - b[2]),2));
 }
 
-__global__ void setup_kernel(curandState *state, unsigned int t) 
+__global__ void setup_kernel(curandState *state) 
 { 
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
-	curand_init(1234, id + t, 0, &state[id]);
+	curand_init(1234, id, 0, &state[id]);
 }
 
-__global__ void generate(unsigned int *rand_value, curandState *state, int cols)
+__global__ void generate(unsigned int *rand_value, curandState *state, int rows)
 {
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	curandState s = state[id];
-	for(int i = 0; i < cols * 3; i++)
-	  rand_value[id * cols + i]	= curand(&s);
+	for(int i = 0; i < rows * 3; i++)
+	  rand_value[id * rows * 3 + i]	= curand(&s);
 	state[id] = s;
 }
 
@@ -105,6 +108,26 @@ cudaError_t CudaSetup(size_t rows, size_t cols)
 	cudaStatus = cudaMalloc(&d_record, size);
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc record failed!");
+		goto Error;	
+	}
+
+	//Allocate GPU spin states
+	size = rows * cols;
+	cudaStatus = cudaMalloc(&d_states, size);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc spin states failed!");
+		goto Error;	
+	}
+
+	cudaStatus = cudaMalloc(&devStates, cols * sizeof(curandState));
+	cudaStatus = cudaMemset(devStates, 0, cols * sizeof(curandState));
+
+	setup_kernel<<<cols / 64, 64>>>(devStates);
+
+	cudaStatus = cudaMalloc(&rand_value, rows * cols * 3 * sizeof(unsigned int));
+
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc random value failed!");
 		goto Error;	
 	}
 
@@ -217,45 +240,23 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 
 void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 {
-	cudaError_t err1;
+	time_print("",0);
+	static int n = 0;
 
-	unsigned char *d_states;
-	cudaMalloc(&d_states, rows*cols);
-	cudaMemcpy(d_states, states, rows*cols, cudaMemcpyHostToDevice);
+	if(!n++)
+		cudaMemcpy(d_states, states, rows * cols, cudaMemcpyHostToDevice);
 
-	curandState *devStates;
-	cudaMalloc(&devStates, rows * sizeof(curandState));
-	cudaMemset(devStates, 0, rows * sizeof(curandState));
-
-	unsigned int *rand_value;
-	cudaMalloc(&rand_value, rows * cols * 3 * sizeof(unsigned int));
-
-	err1=cudaGetLastError();
-	printf("error code =%d , %s \n",err1,cudaGetErrorString(err1));
-
-	setup_kernel<<<rows / 64, 64>>>(devStates, (unsigned int)t);
-
-	generate<<<rows / 64, 64>>>((unsigned int *)rand_value, devStates, cols);
-
-	err1=cudaGetLastError();
-	printf("error code =%d , %s \n",err1,cudaGetErrorString(err1));
+	generate<<<cols / 64, 64>>>((unsigned int *)rand_value, devStates, rows);
 
 	dim3 block_num(8,8,8);
 	dim3 grid_num(((cols+1)/2+7)/8, ((rows+1)/2+7)/8, 1); 
-	time_print("",0);
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 0, 0, rows, cols, t, rand_value); 
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 0, 1, rows, cols, t, rand_value);
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 0, rows, cols, t, rand_value);
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 1, rows, cols, t, rand_value);
-	
-	err1=cudaGetLastError();
-	printf("error code =%d , %s \n",err1,cudaGetErrorString(err1));
+
 	time_print("Metropolis");
-
 	cudaMemcpy(states, d_states, rows*cols, cudaMemcpyDeviceToHost);
-
-	cudaFree(d_states);
-	cudaFree(devStates);
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 

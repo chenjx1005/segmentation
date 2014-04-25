@@ -275,6 +275,7 @@ double PottsModel::PixelEnergy(int pi, int pj) const
 
 void PottsModel::MetropolisOnce()
 {
+	time_print("",0);
 	vector<int> min_sequence;
 	RNG r;
 	int a_count = 0, r_count = 0, d_count = 0;
@@ -331,6 +332,7 @@ void PottsModel::MetropolisOnce()
 		printf("\ntemperature is %lf, %d is accepted, %d is refused, %d is decreased\n",t_, a_count, r_count, d_count);
 		t_ *= a_c_;
 		num_result_++;
+		time_print("CPU Metropolis Once");
 }
 
 void PottsModel::GenStatesResult()
