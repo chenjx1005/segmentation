@@ -8,8 +8,10 @@ using namespace std;
 
 void iterate(PottsModel *potts_model)
 {
-	/*while (potts_model->iterable()){
+	while (potts_model->iterable()){
 		potts_model->MetropolisOnce();
+		potts_model->ShowStates();
+		potts_model->SaveStates();
 	}
 	potts_model->GenBoundry();
 	Mat boundry = potts_model->get_boundrymap();
@@ -22,13 +24,13 @@ void iterate(PottsModel *potts_model)
 	}
 	potts_model->GenBoundry();
 	potts_model->SaveBoundry();
-	boundry = potts_model->get_boundrymap();*/
-	Mat boundry = imread("startboundry.jpg", 0);
+	boundry = potts_model->get_boundrymap();
+	/*Mat boundry = imread("startboundry.jpg", 0);
 	FastLabel f2(boundry);
 	f2.FirstScan();
 	f2.SecondScan();
 	potts_model->UpdateStates(f2.get_labels());
-	potts_model->SaveStates("img1result.jpg");
+	potts_model->SaveStates("img1result.jpg");*/
 }
 
 void rest_iterate(PottsModel *potts_model)
@@ -62,12 +64,13 @@ int main()
 	CudaSetup(img.rows, img.cols);
 	GpuPottsModel m(img, depth);
 	//m.ShowStates();
+	m.SaveStates();
 	while(m.iterable())
 	{	
 		m.MetropolisOnce();
 		m.ShowStates();
+		m.SaveStates();
 	}
-	m.SaveStates("GPUstates.jpg");
 	CudaRelease();
 
 	PottsModel *potts_model = new PottsModel(img, depth, PottsModel::RGB);
@@ -120,7 +123,9 @@ int main()
 		potts2 = new PottsModel(color, dep, *potts_model);
 		potts2->SaveStates();
 		rest_iterate(potts2);
+		delete potts_model;
 		potts_model = potts2;
 	}
+	delete potts_model;
     return 0;
 }

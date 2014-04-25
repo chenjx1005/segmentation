@@ -45,7 +45,7 @@ __global__ void generate(unsigned int *rand_value, curandState *state, int cols)
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	curandState s = state[id];
 	for(int i = 0; i < cols * 3; i++)
-	  rand_value[id * cols + i]	= curand(&s) % 1000;
+	  rand_value[id * cols + i]	= curand(&s);
 	state[id] = s;
 }
 
@@ -228,7 +228,7 @@ void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 	cudaMemset(devStates, 0, rows * sizeof(curandState));
 
 	unsigned int *rand_value;
-	cudaMalloc(&rand_value, rows * cols * 3 * sizeof(int));
+	cudaMalloc(&rand_value, rows * cols * 3 * sizeof(unsigned int));
 
 	err1=cudaGetLastError();
 	printf("error code =%d , %s \n",err1,cudaGetErrorString(err1));
@@ -438,37 +438,42 @@ __global__ void Metropolis(const float (*diff)[8], unsigned char *states, int x,
 		unsigned int id = (p_i * cols + p_j) * 3;
 		unsigned char current_s = states[p_i * cols + p_j];
 		float current_e = 0;
+		float min_e = 0;
+		unsigned char min_s, local_s;
+		unsigned int r = rand_value[id];
 		for (i = 0; i < 8; i++)
 		{
+			//compute current energy
 			ki = p_i + P[i][0];
 			kj = p_j + P[i][1];
 			if (ki < 0 || ki >= rows || kj < 0 || kj >= cols) continue;
-			current_e += d[i] * (current_s == states[ki*cols+kj]);
-		}
-		float min_e = 0;
-		unsigned char min_s;
-		for(i = 0; i < 8; i++)
-		{
+			local_s = states[ki*cols + kj];
+			current_e += d[i] * (current_s == local_s);
+			//if set current state a neibor state, compute the new energy
+			if(local_s == current_s) continue;
 			int compare = 2;
 			if (energy[b_i][b_j][i] < min_e)
 			{
 				min_e = energy[b_i][b_j][i];
-				min_s = states[(p_i+P[i][0])*cols + p_j+P[i][1]];
+				min_s = local_s;	
 				compare = 2;
 			}
 			else if (energy[b_i][b_j][i] == min_e)
 			{
-				if (rand_value[id] % 100 / 100.0 < 1.0 / compare)
+				if (r % 100 / 100.0 < 1.0 / compare)
 				{
-					min_s = states[(p_i+P[i][0])*cols + p_j+P[i][1]];
+					min_s = local_s;
 					compare++;
 				}
+				r /= 10;
 			}
 		}
 		float diff_e = min_e - current_e;
-		if (diff_e <= 0 || (rand_value[id + 1] % 1000) / 1000.0 < exp(-1 *fabs(diff_e)) / (t * 1.38064e-4))
+		float r1 =  (rand_value[id + 1] % 1000) / 1000.0;
+		float r2 = exp(-1 * diff_e / (t * 1.38064e-4));
+		if (diff_e <= 0 || r1 < r2)
 		{
-			if (min_e < FLT_EPSILON)
+			if (fabs(min_e) < FLT_EPSILON)
 			{
 				//TODO: Not use exist spin number around the pxiel
 				min_s = (unsigned char)rand_value[id + 2];
