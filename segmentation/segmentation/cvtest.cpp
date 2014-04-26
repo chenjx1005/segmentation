@@ -61,17 +61,20 @@ int main()
 	img = imread("start.png");
 	Mat depth;
 	cvtColor(imread("startDepth.png"), depth, CV_BGR2GRAY);
-	//CudaSetup(img.rows, img.cols);
-	//GpuPottsModel m(img, depth);
-	////m.ShowStates();
-	//m.SaveStates();
-	//while(m.iterable())
-	//{	
-	//	m.MetropolisOnce();
-	//	m.ShowStates();
-	//	m.SaveStates();
-	//}
-	//CudaRelease();
+	CudaSetup(img.rows, img.cols);
+	GpuPottsModel m(img, depth);
+	//m.ShowStates();
+	m.SaveStates();
+	while(m.iterable())
+	{	
+		m.MetropolisOnce();
+		m.ShowStates();
+		m.SaveStates();
+	}
+	m.GenBoundry();
+	m.ShowBoundry();
+	m.SaveBoundry();
+	CudaRelease();
 
 	PottsModel *potts_model = new PottsModel(img, depth, PottsModel::RGB);
 	iterate(potts_model);

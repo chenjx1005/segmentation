@@ -23,6 +23,7 @@ static unsigned int *cpu_count = 0;
 static unsigned char *d_states = 0;
 static curandState *devStates = 0;
 static unsigned int *rand_value = 0;
+static unsigned char *d_boundry = 0;
 
 void time_print(char *info, int flag)
 {
@@ -69,6 +70,8 @@ __global__ void DecorateDiff(float *diff, const int *record, float mean, float m
 
 __global__ void Metropolis(const float (*diff)[8], unsigned char *states, int x, int y, int rows, int cols, float t, unsigned int *rand_value);
 
+__global__ void BoundryKernel(const unsigned char *states, unsigned char *boundry, int rows, int cols);
+
 cudaError_t CudaSetup(size_t rows, size_t cols)
 {
 	cudaError_t cudaStatus;
@@ -111,11 +114,18 @@ cudaError_t CudaSetup(size_t rows, size_t cols)
 		goto Error;	
 	}
 
-	//Allocate GPU spin states
+	//Allocate GPU spin states and boundry
 	size = rows * cols;
 	cudaStatus = cudaMalloc(&d_states, size);
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc spin states failed!");
+		goto Error;	
+	}
+
+	cudaStatus = cudaMalloc(&d_boundry, size);
+	cudaStatus = cudaMemset(d_boundry, 255, size);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc boundry failed!");
 		goto Error;	
 	}
 
@@ -175,6 +185,10 @@ void CudaRelease()
 	if (orecord) cudaFree(orecord);
 	if (cpu_sum) cudaFree(cpu_sum);
 	if (cpu_count) cudaFree(cpu_count);
+	if (d_states) cudaFree(d_states);
+	if (devStates) cudaFree(devStates);
+	if (rand_value) cudaFree(rand_value);
+	if (d_boundry) cudaFree(d_boundry);
 
 	d_color = NULL;
 	d_depth = NULL;
@@ -184,6 +198,13 @@ void CudaRelease()
 	orecord = NULL;
 	cpu_sum = NULL;
 	cpu_count = NULL;
+	d_states = NULL;
+	devStates = NULL;
+	rand_value = NULL;
+	d_boundry = NULL;
+
+	free(cpu_sum);
+	cpu_sum = 0;
 }
 
 void ComputeDifferenceWithCuda(const unsigned char (*color)[3], 
@@ -212,7 +233,6 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	size_t sum_size = block_sum_num * sizeof(float);
 	size_t count_size = block_sum_num * sizeof(unsigned int);
 	
-	cudaMalloc(&orecord, count_size);
 	SumKernel<<<block_sum_num, block_sum_size>>>((const float *)d_diff, odiff, (const int *)d_record, orecord, n);
 
 	//Read sum and count from device memory
@@ -257,6 +277,15 @@ void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 
 	time_print("Metropolis");
 	cudaMemcpy(states, d_states, rows*cols, cudaMemcpyDeviceToHost);
+}
+
+void GenBoundryWithCuda(unsigned char *boundry, int rows, int cols)
+{
+	dim3 block_size(BLOCK_SIZE, BLOCK_SIZE);
+	dim3 grid_size((cols+BLOCK_SIZE-1) / BLOCK_SIZE, (rows+BLOCK_SIZE-1) / BLOCK_SIZE);
+
+	BoundryKernel<<<grid_size, block_size>>>(d_states, d_boundry, rows, cols);
+	cudaMemcpy(boundry, d_boundry, rows*cols, cudaMemcpyDeviceToHost);
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
@@ -481,5 +510,42 @@ __global__ void Metropolis(const float (*diff)[8], unsigned char *states, int x,
 			}
 				states[p_i*cols + p_j] = min_s;
 		}
+	}
+}
+
+__global__ void BoundryKernel(const unsigned char *states, unsigned char *boundry, int rows, int cols)
+{
+	__shared__ unsigned char shared_states[BLOCK_SIZE][BLOCK_SIZE];
+
+	int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int j = blockIdx.x * blockDim.x + threadIdx.x;
+	int t_i = threadIdx.y;
+	int t_j = threadIdx.x;
+
+	unsigned char s = states[i * cols + j];
+
+	if (i < rows && j < cols)
+	{
+		shared_states[t_i][t_j] = s;
+		__syncthreads();
+
+		unsigned char pre0;
+		unsigned char pre1;
+		unsigned char b = 255;
+
+		if (t_j > 1) pre0 = shared_states[t_i][t_j -2], pre1 = shared_states[t_i][t_j - 1];
+		else if (t_j == 1) pre0 = (j == 1 ? s : states[i * cols + j - 2]), pre1 = shared_states[t_i][t_j - 1];
+		else pre0 = (j == 0 ? s : states[i * cols + j - 2]), pre1 = (j == 0 ? s : states[i * cols + j - 1]);
+
+		if (pre0 != pre1 && pre1 != s) b = 0;
+		else
+		{
+			if (t_i > 1) pre0 = shared_states[t_i - 2][t_j], pre1 = shared_states[t_i - 1][t_j];
+			else if (t_i == 1) pre0 = (i == 1 ? s : states[(i-2) * cols + j]), pre1 = shared_states[t_i - 1][t_j];
+			else pre0 = (i == 0 ? s : states[(i-2) * cols + j]), pre1 = (i == 0 ? s : states[(i-1) * cols + j]);
+			if (pre0 != pre1 && pre1 != s) b = 0;
+		}
+
+		boundry[i * cols + j] = b;
 	}
 }

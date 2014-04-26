@@ -679,3 +679,17 @@ void GpuPottsModel::SaveStates(const string &title)
 		imwrite(title, states_result_);
 	}
 }
+
+void GpuPottsModel::GenBoundry()
+{
+	boundry_ = Scalar::all(255);
+	if (boundry_.isContinuous())
+	{
+		GenBoundryWithCuda(boundry_.data, rows_, cols_);
+	}
+	else
+	{
+		printf("boundry Mat is not continuous!\n");
+		exit(0);
+	}
+}

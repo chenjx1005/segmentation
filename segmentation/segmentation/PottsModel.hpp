@@ -48,6 +48,7 @@ public:
 		cv::imshow("PottsModel", boundry_);
 		cv::waitKey(milliseconds);
 	}
+	virtual void GenBoundry() = 0;
 	void SaveBoundry() const { cv::imwrite("boundry.jpg", boundry_); }
 	virtual void ShowDifference() const {};
 	virtual void HorizontalColor() const {};
@@ -141,6 +142,7 @@ public:
 	virtual void GenStatesResult();
 	virtual void ShowStates(int milliseconds=0);
 	virtual void SaveStates(const std::string &title="");
+	virtual void GenBoundry();
 
 	uchar *states_;
 	float (*diff_)[8];
