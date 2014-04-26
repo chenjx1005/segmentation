@@ -183,12 +183,12 @@ void CudaRelease()
 	if (d_record) cudaFree(d_record);
 	if (odiff) cudaFree(odiff);
 	if (orecord) cudaFree(orecord);
-	if (cpu_sum) cudaFree(cpu_sum);
 	if (cpu_count) cudaFree(cpu_count);
 	if (d_states) cudaFree(d_states);
 	if (devStates) cudaFree(devStates);
 	if (rand_value) cudaFree(rand_value);
 	if (d_boundry) cudaFree(d_boundry);
+	if (cpu_sum) free(cpu_sum);
 
 	d_color = NULL;
 	d_depth = NULL;
@@ -196,14 +196,11 @@ void CudaRelease()
 	d_record = NULL;
 	odiff = NULL;
 	orecord = NULL;
-	cpu_sum = NULL;
 	cpu_count = NULL;
 	d_states = NULL;
 	devStates = NULL;
 	rand_value = NULL;
 	d_boundry = NULL;
-
-	free(cpu_sum);
 	cpu_sum = 0;
 }
 

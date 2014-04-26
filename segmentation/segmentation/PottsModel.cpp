@@ -463,6 +463,7 @@ void PottsModel::GenBoundry()
 {
 	//initialize the boundry_ matrix
 	boundry_ = Scalar::all(255);
+	time_print("", 0);
 	int flag = 0;
 	for (int i = 0; i < color_.rows; i++)
 	{
@@ -496,6 +497,7 @@ void PottsModel::GenBoundry()
 			}
 		}
 	}
+	time_print("CPU boundry generate");
 }
 
 void PottsModel::ShowDifference() const
@@ -682,7 +684,9 @@ void GpuPottsModel::SaveStates(const string &title)
 
 void GpuPottsModel::GenBoundry()
 {
+	time_print("", 0);
 	boundry_ = Scalar::all(255);
+	time_print("GPU boundry_ init");
 	if (boundry_.isContinuous())
 	{
 		GenBoundryWithCuda(boundry_.data, rows_, cols_);
@@ -692,4 +696,5 @@ void GpuPottsModel::GenBoundry()
 		printf("boundry Mat is not continuous!\n");
 		exit(0);
 	}
+	time_print("GPU boundry generate");
 }
