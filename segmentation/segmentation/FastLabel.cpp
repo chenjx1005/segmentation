@@ -71,6 +71,7 @@ void FastLabel::FirstScan()
 			}
 		}
 	}
+	cout<<m_<<endl;
 }
 
 void FastLabel::SecondScan()

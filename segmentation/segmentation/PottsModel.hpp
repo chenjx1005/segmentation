@@ -143,12 +143,22 @@ public:
 	virtual void ShowStates(int milliseconds=0);
 	virtual void SaveStates(const std::string &title="");
 	virtual void GenBoundry();
+	//faster FastLabel
+	void Label();
 
 	uchar *states_;
 	float (*diff_)[8];
 
 private:
 	virtual double PixelEnergy(int pi, int pj) const;
+	const int INFI;
+	int c(int x, int y, int n) const
+	{
+
+	}
+
+	cv::Mat labels_;
+	int label_table[10000];
 };
 
 #endif

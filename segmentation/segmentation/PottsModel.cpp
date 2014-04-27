@@ -599,7 +599,8 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 
 
 GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
-	:BasicPottsModel(color, depth, color_space)
+	:BasicPottsModel(color, depth, color_space), lables_(rows_, cols_, CV_32U),
+	INFI(256255)
 {
 	if(depth.isContinuous())
 		states_ = depth.data;
@@ -684,9 +685,6 @@ void GpuPottsModel::SaveStates(const string &title)
 
 void GpuPottsModel::GenBoundry()
 {
-	time_print("", 0);
-	boundry_ = Scalar::all(255);
-	time_print("GPU boundry_ init");
 	if (boundry_.isContinuous())
 	{
 		GenBoundryWithCuda(boundry_.data, rows_, cols_);
@@ -697,4 +695,10 @@ void GpuPottsModel::GenBoundry()
 		exit(0);
 	}
 	time_print("GPU boundry generate");
+}
+
+void GpuPottsModel::Label()
+{
+	int m = 1;
+
 }
