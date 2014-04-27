@@ -152,13 +152,11 @@ public:
 private:
 	virtual double PixelEnergy(int pi, int pj) const;
 	const int INFI;
-	int c(int x, int y, int n) const
-	{
-
-	}
+	int c(int x, int y, int n) const;
 
 	cv::Mat labels_;
-	int label_table[10000];
+	unsigned int label_table[10000];
+	unsigned int final_label[10000];
 };
 
 #endif

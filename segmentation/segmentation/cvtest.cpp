@@ -74,12 +74,11 @@ int main()
 	m.GenBoundry();
 	m.ShowBoundry();
 	m.SaveBoundry();
-	Mat boundry = m.get_boundrymap();
 	time_print("",0);
-	FastLabel f(boundry);
-	f.FirstScan();
-	f.SecondScan();
+	m.Label();
 	time_print("label time");
+	m.ShowStates();
+	m.SaveStates();
 	CudaRelease();
 
 	PottsModel *potts_model = new PottsModel(img, depth, PottsModel::RGB);

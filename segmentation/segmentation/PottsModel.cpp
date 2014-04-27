@@ -31,6 +31,8 @@ const int kStatesResult[256] = {103, 132, 101, 209, 230, 222, 44, 79, 247, 59, 6
 								232, 112, 48, 147, 201, 188, 52, 75, 177, 203, 191, 165, 176, 213, 14, 6, 127, 151, 71, 9,
 								251, 250, 186, 205, 23, 216, 108, 227, 102, 146, 180, 40, 10, 226, 84, 131, 74, 94, 3, 34,
 								220, 66, 198, 183, 254, 206, 106, 175, 171, 113, 233, 33, 159, 17};
+//use for funciton c in GpuPottsModel Label
+const int kC[5] = {{0, 0}, {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}};
 
 double hsv_distance(const Vec3b &a, const Vec3b &b)
 {
@@ -699,6 +701,56 @@ void GpuPottsModel::GenBoundry()
 
 void GpuPottsModel::Label()
 {
+	memset(label_table, 0, 10000*sizeof(unsigned int));
 	int m = 1;
+	int c1, c2, c3, c4;
+	//First Scan
+	for(int i = 0; i < rows_; i++)
+		for(int j = 0; j < cols_; j++)
+		{
+			if (boundry_.at<uchar>(i, j) == 0) labels_.at<unsigned int>(i, j) = INFI;
+			else if ((c3 = c(i, j, 3)) != INFI) labels_.at<unsigned int>(i, j) = c3;
+			else if ((c1 = c(i, j, 1)) != INFI))
+			{
+				labels_.at<unsigned int>(i, j) = c1;
+				if ((c4 = c(i, j, 4)) != INFI) { label_table[c4] = c1; } 
+			}
+			else if ((c2 = c(i, j, 2)) != INFI)
+			{
+				labels_.at<unsigned int>(i, j) = c2;
+				if ((c4 = c(i, j, 4)) != INFI) { label_table[c2] = c4; }
+			}
+			else if ((c4 = c(i, j, 4)) != INFI) { labels_.at<unsigned int>(i, j) = c4; }
+			else
+			{
+				//prevent the label set 255
+				labels_.at<unsigned int>(i, j) = (m % 256 == 255 ? ++m : m);
+				m++;
+			}
+		}
+	//label_table
+	unsigned int label;
+	for(int i = 1; i < m; i++)
+	{
+		label = i;
+		while(label_table[label]) label = label_table[label];
+		final_label[i] = label;
+	}
+	//Second Scan
+	for(int i = 0; i < rows_; i++)
+		for(int j = 0; j < cols_; j++)
+		{
+			label = lables_.at<unsigned int>(i, j);
+			states_[i * cols + j] = final_label[label] % num_spin_;
+		}
+	num_result_++;
+}
 
+int GpuPottsModel::c(int x, int y, int n) const
+{
+	x += kC[n][0];
+	y += kC[n][1];
+
+	if (x < 0 || y < 0 || y > cols_) return INFI;
+	return labels_.at<unsigned int>(x, y);
 }
