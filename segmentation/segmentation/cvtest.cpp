@@ -68,7 +68,7 @@ int main()
 	while(m.iterable())
 	{	
 		m.MetropolisOnce();
-		m.ShowStates();
+		//m.ShowStates();
 		m.SaveStates();
 	}
 	m.GenBoundry();

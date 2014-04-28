@@ -32,7 +32,7 @@ const int kStatesResult[256] = {103, 132, 101, 209, 230, 222, 44, 79, 247, 59, 6
 								251, 250, 186, 205, 23, 216, 108, 227, 102, 146, 180, 40, 10, 226, 84, 131, 74, 94, 3, 34,
 								220, 66, 198, 183, 254, 206, 106, 175, 171, 113, 233, 33, 159, 17};
 //use for funciton c in GpuPottsModel Label
-const int kC[5] = {{0, 0}, {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}};
+const int kC[5][2] = {{0, 0}, {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}};
 
 double hsv_distance(const Vec3b &a, const Vec3b &b)
 {
@@ -601,7 +601,7 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 
 
 GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
-	:BasicPottsModel(color, depth, color_space), lables_(rows_, cols_, CV_32U),
+	:BasicPottsModel(color, depth, color_space), labels_(rows_, cols_, CV_32S),
 	INFI(256255)
 {
 	if(depth.isContinuous())
@@ -687,6 +687,7 @@ void GpuPottsModel::SaveStates(const string &title)
 
 void GpuPottsModel::GenBoundry()
 {
+	time_print("", 0);
 	if (boundry_.isContinuous())
 	{
 		GenBoundryWithCuda(boundry_.data, rows_, cols_);
@@ -701,35 +702,42 @@ void GpuPottsModel::GenBoundry()
 
 void GpuPottsModel::Label()
 {
-	memset(label_table, 0, 10000*sizeof(unsigned int));
+	cout<<INFI<<endl;
+	memset(label_table, 0, 10000*sizeof(int));
 	int m = 1;
 	int c1, c2, c3, c4;
 	//First Scan
 	for(int i = 0; i < rows_; i++)
 		for(int j = 0; j < cols_; j++)
 		{
-			if (boundry_.at<uchar>(i, j) == 0) labels_.at<unsigned int>(i, j) = INFI;
-			else if ((c3 = c(i, j, 3)) != INFI) labels_.at<unsigned int>(i, j) = c3;
-			else if ((c1 = c(i, j, 1)) != INFI))
+			if (boundry_.at<uchar>(i, j) == 0) labels_.at<int>(i, j) = INFI;
+			else if ((c3 = c(i, j, 3)) != INFI) labels_.at<int>(i, j) = c3;
+			else if ((c1 = c(i, j, 1)) != INFI)
 			{
-				labels_.at<unsigned int>(i, j) = c1;
-				if ((c4 = c(i, j, 4)) != INFI) { label_table[c4] = c1; } 
+				labels_.at<int>(i, j) = c1;
+				if ((c4 = c(i, j, 4)) != INFI) 
+				{ 
+					if (c4 != c1) label_table[c4] = c1;
+				} 
 			}
 			else if ((c2 = c(i, j, 2)) != INFI)
 			{
-				labels_.at<unsigned int>(i, j) = c2;
-				if ((c4 = c(i, j, 4)) != INFI) { label_table[c2] = c4; }
+				labels_.at<int>(i, j) = c2;
+				if ((c4 = c(i, j, 4)) != INFI) 
+				{
+					if (c2 != c4) label_table[c2] = c4;
+				}
 			}
-			else if ((c4 = c(i, j, 4)) != INFI) { labels_.at<unsigned int>(i, j) = c4; }
+			else if ((c4 = c(i, j, 4)) != INFI) { labels_.at<int>(i, j) = c4; }
 			else
 			{
 				//prevent the label set 255
-				labels_.at<unsigned int>(i, j) = (m % 256 == 255 ? ++m : m);
+				labels_.at<int>(i, j) = (m % 256 == 255 ? ++m : m);
 				m++;
 			}
 		}
 	//label_table
-	unsigned int label;
+	int label;
 	for(int i = 1; i < m; i++)
 	{
 		label = i;
@@ -740,10 +748,16 @@ void GpuPottsModel::Label()
 	for(int i = 0; i < rows_; i++)
 		for(int j = 0; j < cols_; j++)
 		{
-			label = lables_.at<unsigned int>(i, j);
-			states_[i * cols + j] = final_label[label] % num_spin_;
+			label = labels_.at<int>(i, j);
+			states_[i * cols_ + j] = final_label[label] % num_spin_;
 		}
 	num_result_++;
+}
+
+void GpuPottsModel::Resolve(int m, int n)
+{
+	if (m == n) return;
+	while(label_table[n] && label_table[n] != m) n = label_table[n];
 }
 
 int GpuPottsModel::c(int x, int y, int n) const
@@ -751,6 +765,6 @@ int GpuPottsModel::c(int x, int y, int n) const
 	x += kC[n][0];
 	y += kC[n][1];
 
-	if (x < 0 || y < 0 || y > cols_) return INFI;
-	return labels_.at<unsigned int>(x, y);
+	if (x < 0 || y < 0 || y == cols_) return INFI;
+	return labels_.at<int>(x, y);
 }

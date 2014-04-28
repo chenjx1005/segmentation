@@ -153,6 +153,7 @@ private:
 	virtual double PixelEnergy(int pi, int pj) const;
 	const int INFI;
 	int c(int x, int y, int n) const;
+	void Resolve(int m, int n);
 
 	cv::Mat labels_;
 	unsigned int label_table[10000];
