@@ -717,7 +717,7 @@ void GpuPottsModel::Label()
 				labels_.at<int>(i, j) = c1;
 				if ((c4 = c(i, j, 4)) != INFI) 
 				{ 
-					if (c4 != c1) label_table[c4] = c1;
+					if (c4 != c1) Resolve(c4, c1);
 				} 
 			}
 			else if ((c2 = c(i, j, 2)) != INFI)
@@ -725,7 +725,7 @@ void GpuPottsModel::Label()
 				labels_.at<int>(i, j) = c2;
 				if ((c4 = c(i, j, 4)) != INFI) 
 				{
-					if (c2 != c4) label_table[c2] = c4;
+					if (c2 != c4) Resolve(c2, c4);
 				}
 			}
 			else if ((c4 = c(i, j, 4)) != INFI) { labels_.at<int>(i, j) = c4; }
@@ -756,8 +756,11 @@ void GpuPottsModel::Label()
 
 void GpuPottsModel::Resolve(int m, int n)
 {
-	if (m == n) return;
-	while(label_table[n] && label_table[n] != m) n = label_table[n];
+	while (label_table[m]) m = label_table[m];
+	while (label_table[n]) n = label_table[n];
+
+	if (m < n) label_table[n] = m;
+	else if (m > n) label_table[m] = n;
 }
 
 int GpuPottsModel::c(int x, int y, int n) const
