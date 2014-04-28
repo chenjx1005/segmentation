@@ -74,9 +74,7 @@ int main()
 	m.GenBoundry();
 	m.ShowBoundry();
 	m.SaveBoundry();
-	time_print("",0);
 	m.Label();
-	time_print("label time");
 	m.ShowStates();
 	m.SaveStates();
 	CudaRelease();

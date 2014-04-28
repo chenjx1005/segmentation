@@ -702,7 +702,7 @@ void GpuPottsModel::GenBoundry()
 
 void GpuPottsModel::Label()
 {
-	cout<<INFI<<endl;
+	time_print("", 0);
 	memset(label_table, 0, 10000*sizeof(int));
 	int m = 1;
 	int c1, c2, c3, c4;
@@ -736,6 +736,7 @@ void GpuPottsModel::Label()
 				m++;
 			}
 		}
+	time_print("First scan time");
 	//label_table
 	int label;
 	for(int i = 1; i < m; i++)
@@ -744,14 +745,17 @@ void GpuPottsModel::Label()
 		while(label_table[label]) label = label_table[label];
 		final_label[i] = label;
 	}
+	time_print("final_label time");
 	//Second Scan
 	for(int i = 0; i < rows_; i++)
 		for(int j = 0; j < cols_; j++)
 		{
 			label = labels_.at<int>(i, j);
-			states_[i * cols_ + j] = final_label[label] % num_spin_;
+			if (label == INFI) states_[i * cols_ + j] = num_spin_ - 1;
+			else states_[i * cols_ + j] = final_label[label] % num_spin_;
 		}
 	num_result_++;
+	time_print("Second Scan time");
 }
 
 void GpuPottsModel::Resolve(int m, int n)
