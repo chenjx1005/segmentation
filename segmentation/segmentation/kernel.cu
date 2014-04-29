@@ -75,6 +75,10 @@ __global__ void Metropolis(const float (*diff)[8], unsigned char *states, int x,
 
 __global__ void BoundryKernel(const unsigned char *states, unsigned char *boundry, int rows, int cols);
 
+__global__ void LoadNextKernel(unsigned char *states, const unsigned char *old_states, const unsigned char *depth, const unsigned char *old_depth, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols);
+
+__global__ void LoadNextUpdateKernel(unsigned char *states, int rows, int cols);
+
 cudaError_t CudaSetup(size_t rows, size_t cols)
 {
 	cudaError_t cudaStatus;
@@ -309,9 +313,31 @@ void CopyStatesToDevice(unsigned char *states, int rows, int cols)
 	cudaMemcpy(d_states, states, rows * cols, cudaMemcpyHostToDevice);
 }
 
-void LoadNextFrameWithCuda(unsigned char *states, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols)
+void LoadNextFrameWithCuda(unsigned char *states, unsigned char *depth, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols)
 {
-	
+	size_t size = rows * cols;
+	cudaMemset(new_states, 0, size);
+	cudaMemcpy(new_depth, depth, size, cudaMemcpyHostToDevice);
+
+	//Kernel
+	dim3 block_size(BLOCK_SIZE, BLOCK_SIZE);
+	dim3 grid_size((cols+BLOCK_SIZE-1) / BLOCK_SIZE, (rows+BLOCK_SIZE-1) / BLOCK_SIZE);
+
+	LoadNextKernel<<<grid_size, block_size>>>(new_states, d_states, new_depth, d_depth, flow_x, flow_y, rows, cols);
+	LoadNextUpdateKernel<<<grid_size, block_size>>>(new_states, rows, cols);
+
+	//swap new and old memory
+	unsigned char *tmp;
+	tmp = d_states;
+	d_states = new_states;
+	new_states = tmp;
+
+	tmp = d_depth;
+	d_depth = new_depth;
+	new_depth = tmp;
+
+	//Copy states to Host
+	cudaMemcpy(states, d_states, size, cudaMemcpyDeviceToHost);
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
@@ -573,5 +599,36 @@ __global__ void BoundryKernel(const unsigned char *states, unsigned char *boundr
 		}
 
 		boundry[i * cols + j] = b;
+	}
+}
+
+__global__ void LoadNextKernel(unsigned char *states, const unsigned char *old_states, const unsigned char *depth, const unsigned char *old_depth, cv::gpu::PtrStepf flow_x, cv::gpu::PtrStepf flow_y, int rows, int cols)
+{
+	int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int j = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (i < rows && j < cols)
+	{
+		int x = i + (int)flow_x.ptr(i)[j];
+		int y = j + (int)flow_y.ptr(i)[j];
+		if (x >= 0 && y >=0 && x < rows && y < cols &&
+			abs((int)depth[x * cols + y] - (int)old_depth[i * cols + j]) <= 30)
+		{
+			states[x * cols + y] = old_states[i * cols + j];
+		}
+	}
+}
+
+__global__ void LoadNextUpdateKernel(unsigned char *states, int rows, int cols)
+{
+	int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int j = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (i < rows && j < cols)
+	{
+		if (states[i * cols + j] == 0)
+		{
+			states[i * cols + j] = (unsigned char)(i * cols + j);
+		}
 	}
 }

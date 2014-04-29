@@ -630,7 +630,7 @@ void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_
 	cvtColor(gpu_new_color, gpu_new_gray, CV_BGR2GRAY);
 
 	FarneCalc(gpu_gray_, gpu_new_gray_, d_flowx, d_flowy);
-	LoadNextFrameWithCuda(states_, PtrStep<float>(d_flowx), PtrStep<float>(d_flowy), rows_, cols_);
+	LoadNextFrameWithCuda(states_, depth_, PtrStep<float>(d_flowx), PtrStep<float>(d_flowy), rows_, cols_);
 }
 
 GpuPottsModel::~GpuPottsModel()
@@ -751,7 +751,7 @@ void GpuPottsModel::Label()
 			else
 			{
 				//prevent the label set 255
-				labels_.at<int>(i, j) = (m % 256 == 255 ? ++m : m);
+				labels_.at<int>(i, j) = (m % 256 == 255 ? (m+=2) : m);
 				m++;
 			}
 		}
