@@ -63,12 +63,12 @@ int main()
 	cvtColor(imread("startDepth.png"), depth, CV_BGR2GRAY);
 	CudaSetup(img.rows, img.cols);
 	GpuPottsModel m(img, depth);
-	//m.ShowStates();
+	m.ShowStates();
 	m.SaveStates();
 	while(m.iterable())
 	{	
 		m.MetropolisOnce();
-		//m.ShowStates();
+		m.ShowStates();
 		m.SaveStates();
 	}
 	m.GenBoundry();
@@ -77,6 +77,15 @@ int main()
 	m.Label();
 	m.ShowStates();
 	m.SaveStates();
+	m.CopyStates();
+	for(int i = 0; i < 10; i++)
+	{
+		m.MetropolisOnce();
+		m.ShowStates();
+		m.SaveStates();
+	}
+	m.GenBoundry();
+	m.ShowBoundry();
 	CudaRelease();
 
 	PottsModel *potts_model = new PottsModel(img, depth, PottsModel::RGB);

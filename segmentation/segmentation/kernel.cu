@@ -24,6 +24,9 @@ static unsigned char *d_states = 0;
 static curandState *devStates = 0;
 static unsigned int *rand_value = 0;
 static unsigned char *d_boundry = 0;
+//Optical Flow
+static unsigned char *new_depth = 0;
+static unsigned char *new_states = 0;
 
 void time_print(char *info, int flag)
 {
@@ -123,7 +126,6 @@ cudaError_t CudaSetup(size_t rows, size_t cols)
 	}
 
 	cudaStatus = cudaMalloc(&d_boundry, size);
-	cudaStatus = cudaMemset(d_boundry, 255, size);
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc boundry failed!");
 		goto Error;	
@@ -168,6 +170,15 @@ cudaError_t CudaSetup(size_t rows, size_t cols)
 		goto Error;	
 	}
 
+	//Allocate GPU Optical Flow
+	size = rows * cols;
+	cudaStatus = cudaMalloc(&new_depth, size);
+	cudaStatus = cudaMalloc(&new_states, size);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc Optical Flow failed!");
+		goto Error;	
+	}
+
 	return cudaStatus;
 
 Error:
@@ -189,6 +200,8 @@ void CudaRelease()
 	if (rand_value) cudaFree(rand_value);
 	if (d_boundry) cudaFree(d_boundry);
 	if (cpu_sum) free(cpu_sum);
+	if (new_depth) cudaFree(new_depth);
+	if (new_states) cudaFree(new_states);
 
 	d_color = NULL;
 	d_depth = NULL;
@@ -202,6 +215,8 @@ void CudaRelease()
 	rand_value = NULL;
 	d_boundry = NULL;
 	cpu_sum = 0;
+	new_depth = NULL;
+	new_states = NULL;
 }
 
 void ComputeDifferenceWithCuda(const unsigned char (*color)[3], 
@@ -213,7 +228,10 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	time_print("", 0);
 
 	cudaMemcpy(d_color, color, rows * cols * 3, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_depth, depth, rows * cols, cudaMemcpyHostToDevice);
+	//Copy depth for the first frame
+	//Other frames copy depth in LoadNextFrameWithCuda function 
+	if(n == 0)
+		cudaMemcpy(d_depth, depth, rows * cols, cudaMemcpyHostToDevice);
 	time_print("GPU Copy");
 
 	//Invoke kernel
@@ -278,11 +296,22 @@ void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 
 void GenBoundryWithCuda(unsigned char *boundry, int rows, int cols)
 {
+	cudaMemset(d_boundry, 255, rows * cols);
 	dim3 block_size(BLOCK_SIZE, BLOCK_SIZE);
 	dim3 grid_size((cols+BLOCK_SIZE-1) / BLOCK_SIZE, (rows+BLOCK_SIZE-1) / BLOCK_SIZE);
 
 	BoundryKernel<<<grid_size, block_size>>>(d_states, d_boundry, rows, cols);
 	cudaMemcpy(boundry, d_boundry, rows*cols, cudaMemcpyDeviceToHost);
+}
+
+void CopyStatesToDevice(unsigned char *states, int rows, int cols)
+{
+	cudaMemcpy(d_states, states, rows * cols, cudaMemcpyHostToDevice);
+}
+
+void LoadNextFrameWithCuda(unsigned char *states, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols)
+{
+	
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 

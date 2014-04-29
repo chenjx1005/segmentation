@@ -602,8 +602,10 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 
 GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
 	:BasicPottsModel(color, depth, color_space), labels_(rows_, cols_, CV_32S),
-	INFI(256255)
+	INFI(256255), gpu_color_(color_),
+	gpu_new_color_(rows_, cols_, CV_8UC3), gpu_new_gray_(rows_, cols_, CV_8U)
 {
+	cvtColor(gpu_color_, gpu_gray_, CV_BGR2GRAY);
 	if(depth.isContinuous())
 		states_ = depth.data;
 	else
@@ -612,6 +614,23 @@ GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int col
 		exit(0);
 	}
 	ComputeDifference();
+}
+
+void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_space)
+{
+	color_ = color;
+	depth_ = depth;
+
+	start_frame_ = 0;
+	num_result_ = 0;
+	num_result_gen_ = -1;
+	color_space_ = color_space;
+
+	gpu_new_color_.upload(color);
+	cvtColor(gpu_new_color, gpu_new_gray, CV_BGR2GRAY);
+
+	FarneCalc(gpu_gray_, gpu_new_gray_, d_flowx, d_flowy);
+	LoadNextFrameWithCuda(states_, PtrStep<float>(d_flowx), PtrStep<float>(d_flowy), rows_, cols_);
 }
 
 GpuPottsModel::~GpuPottsModel()
@@ -650,8 +669,8 @@ void GpuPottsModel::GenStatesResult()
 		{
 			states = states_[i * cols_ + j];
 			//map the state to the result array
-			//Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
-			Vec3b c(static_cast<uchar>(states * 0.6), 180, 230);
+			Vec3b c(static_cast<uchar>(kStatesResult[states] * 0.6), 180, 230);
+			//Vec3b c(static_cast<uchar>(states * 0.6), 180, 230);
 			//if the state is num_spin_ - 1, the pixel is on the boundry line.
 			//so use black
 			if (states == num_spin_ - 1) c[2] = 0;
@@ -756,6 +775,11 @@ void GpuPottsModel::Label()
 		}
 	num_result_++;
 	time_print("Second Scan time");
+}
+
+void GpuPottsModel::CopyStates()
+{
+	CopyStatesToDevice(states_, rows_, cols_);
 }
 
 void GpuPottsModel::Resolve(int m, int n)

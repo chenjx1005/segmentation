@@ -17,12 +17,12 @@ public:
 	typedef cv::Matx<int, 3, 3> Matx33i;
 	enum ColorSpace {HSV = 1, RGB = 2,};
 	BasicPottsModel():
-		start_frame_(1), alpha_(1.0), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+		start_frame_(1), alpha_(1.0), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.8),
 		t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 		num_result_gen_(-1),
 		kPixel(4, 2, 6, 0, -1, 1, 7, 3 ,5), color_space_(RGB) {};
 	BasicPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB):
-		start_frame_(1), alpha_(1.0), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.33),
+		start_frame_(1), alpha_(1.0), num_spin_(256), init_t_(1.3806488e+7), min_t_(0.1), a_c_(0.8),
 		t_(init_t_), kK(1.3806488e-4), kMaxJ(250.0), num_result_(0),
 		num_result_gen_(-1), color_(color), depth_(depth),
 		boundry_(color.rows, color.cols, CV_8U),
@@ -135,6 +135,7 @@ class GpuPottsModel : public BasicPottsModel
 {
 public:
 	GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB);
+	void LoadNextFrame(const cv::Mat &color, const cv::Mat &depth, int color_space=RGB);
 	//GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, PottsModel &last_frame, int color_space=RGB);
 	virtual ~GpuPottsModel();
 	virtual void ComputeDifference();
@@ -145,9 +146,14 @@ public:
 	virtual void GenBoundry();
 	//faster FastLabel
 	void Label();
+	void CopyStates();
 
 	uchar *states_;
 	float (*diff_)[8];
+	cv::gpu::GpuMat gpu_color_;
+	cv::gpu::GpuMat gpu_gray_;
+	cv::gpu::GpuMat gpu_new_color_;
+	cv::gpu::GpuMat gpu_new_gray_;
 
 private:
 	virtual double PixelEnergy(int pi, int pj) const;
@@ -156,8 +162,10 @@ private:
 	void Resolve(int m, int n);
 
 	cv::Mat labels_;
+	//TODO: the size of the label_table and final_label
 	unsigned int label_table[10000];
 	unsigned int final_label[10000];
+	cv::gpu::GpuMat d_flowx, d_flowy;
 };
 
 #endif
