@@ -6,6 +6,8 @@
 using namespace cv;
 using namespace std;
 
+string dic = "C:/Users/chenjx/Documents/Visual Studio 2010/Projects/cv_segment/cv_segment/ColorOnlyTest/";
+
 void iterate(PottsModel *potts_model)
 {
 	while (potts_model->iterable()){
@@ -58,34 +60,42 @@ int main()
 	//mymain();
 	//!Single frame segment code
 	Mat img;
-	img = imread("start.png");
+	img = imread(dic+"Color01.png");
 	Mat depth;
-	cvtColor(imread("startDepth.png"), depth, CV_BGR2GRAY);
+	cvtColor(imread(dic+"Depth01.png"), depth, CV_BGR2GRAY);
+
+	Mat img2 = imread(dic + "Color02.png");
+	Mat depth2;
+	cvtColor(imread(dic + "Depth02.png"), depth2, CV_BGR2GRAY);
+
 	CudaSetup(img.rows, img.cols);
 	GpuPottsModel m(img, depth);
-	m.ShowStates();
-	m.SaveStates();
-	while(m.iterable())
-	{	
-		m.MetropolisOnce();
-		m.ShowStates();
-		m.SaveStates();
-	}
+	m.Metropolis();
 	m.GenBoundry();
-	m.ShowBoundry();
-	m.SaveBoundry();
 	m.Label();
-	m.ShowStates();
-	m.SaveStates();
 	m.CopyStates();
 	for(int i = 0; i < 10; i++)
 	{
 		m.MetropolisOnce();
-		m.ShowStates();
-		m.SaveStates();
 	}
 	m.GenBoundry();
-	m.ShowBoundry();
+	m.Label();
+	m.ShowStates();
+	m.SaveStates();
+	m.CopyStates();
+	m.LoadNextFrame(img2, depth2);
+	m.ShowStates();
+	m.SaveStates();
+	for(int i = 0; i < 10; i++)
+	{
+		m.MetropolisOnce();
+	}
+	m.ShowStates();
+	m.SaveStates();
+	m.GenBoundry();
+	m.Label();
+	m.ShowStates();
+	m.SaveStates();
 	CudaRelease();
 
 	PottsModel *potts_model = new PottsModel(img, depth, PottsModel::RGB);

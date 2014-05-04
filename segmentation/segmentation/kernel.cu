@@ -234,7 +234,9 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	cudaMemcpy(d_color, color, rows * cols * 3, cudaMemcpyHostToDevice);
 	//Copy depth for the first frame
 	//Other frames copy depth in LoadNextFrameWithCuda function 
-	if(n == 0)
+	static int re = 0;
+
+	if(!re++)
 		cudaMemcpy(d_depth, depth, rows * cols, cudaMemcpyHostToDevice);
 	time_print("GPU Copy");
 
@@ -279,7 +281,6 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 
 void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 {
-	time_print("",0);
 	static int n = 0;
 
 	if(!n++)
@@ -294,7 +295,6 @@ void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 0, rows, cols, t, rand_value);
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 1, rows, cols, t, rand_value);
 
-	time_print("Metropolis");
 	cudaMemcpy(states, d_states, rows*cols, cudaMemcpyDeviceToHost);
 }
 
@@ -313,11 +313,11 @@ void CopyStatesToDevice(unsigned char *states, int rows, int cols)
 	cudaMemcpy(d_states, states, rows * cols, cudaMemcpyHostToDevice);
 }
 
-void LoadNextFrameWithCuda(unsigned char *states, unsigned char *depth, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols)
+void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols)
 {
 	size_t size = rows * cols;
 	cudaMemset(new_states, 0, size);
-	cudaMemcpy(new_depth, depth, size, cudaMemcpyHostToDevice);
+	cudaMemcpy(new_depth, depth, size, cudaMemcpyHostToDevice);	
 
 	//Kernel
 	dim3 block_size(BLOCK_SIZE, BLOCK_SIZE);

@@ -147,6 +147,7 @@ public:
 	//faster FastLabel
 	void Label();
 	void CopyStates();
+	void Metropolis();
 
 	uchar *states_;
 	float (*diff_)[8];

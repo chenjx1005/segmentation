@@ -605,6 +605,7 @@ GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int col
 	INFI(256255), gpu_color_(color_),
 	gpu_new_color_(rows_, cols_, CV_8UC3), gpu_new_gray_(rows_, cols_, CV_8U)
 {
+	diff_ = new float[rows_ * cols_][8];
 	cvtColor(gpu_color_, gpu_gray_, CV_BGR2GRAY);
 	if(depth.isContinuous())
 		states_ = depth.data;
@@ -627,10 +628,12 @@ void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_
 	color_space_ = color_space;
 
 	gpu_new_color_.upload(color);
-	cvtColor(gpu_new_color, gpu_new_gray, CV_BGR2GRAY);
+	cvtColor(gpu_new_color_, gpu_new_gray_, CV_BGR2GRAY);
 
 	FarneCalc(gpu_gray_, gpu_new_gray_, d_flowx, d_flowy);
-	LoadNextFrameWithCuda(states_, depth_, PtrStep<float>(d_flowx), PtrStep<float>(d_flowy), rows_, cols_);
+	LoadNextFrameWithCuda(states_, depth_.data, PtrStep<float>(d_flowx), PtrStep<float>(d_flowy), rows_, cols_);
+	gpu_gray_ = gpu_new_gray_;
+	ComputeDifferenceWithCuda((const unsigned char (*)[3])color_.data, depth_.data, diff_, rows_, cols_);
 }
 
 GpuPottsModel::~GpuPottsModel()
@@ -642,8 +645,17 @@ void GpuPottsModel::ComputeDifference()
 {
 	CV_Assert(color_.type() == CV_8UC3);
 
-	diff_ = new float[rows_ * cols_][8];
 	ComputeDifferenceWithCuda((const unsigned char (*)[3])color_.data, depth_.data, diff_, rows_, cols_);
+}
+
+void GpuPottsModel::Metropolis()
+{
+	time_print("", 0);
+	while(iterable())
+	{	
+		MetropolisOnce();
+	}
+	time_print("Metropolis");
 }
 
 void GpuPottsModel::MetropolisOnce()
