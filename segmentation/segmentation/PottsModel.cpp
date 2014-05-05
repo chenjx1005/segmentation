@@ -127,7 +127,7 @@ PottsModel::~PottsModel()
 void PottsModel::ComputeDifference()
 {
 	CV_Assert(color_.type() == CV_8UC3);
-	time_print("", 0);
+	//time_print("", 0);
 	//initialize diff matrix
 	int sz[3] = {color_.rows, color_.cols, 8};
 	diff_.create(3, sz, CV_64F);
@@ -246,17 +246,17 @@ void PottsModel::ComputeDifference()
 		}
 	}
 	mean_diff_ = alpha_ * sum / count;
-	time_print("CPU Compute");
+	//time_print("CPU Compute");
 	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean_diff_, alpha_);
 	if (fabs(mean_diff_) >= EPSILON)
 		diff_ = diff_ * (1 / mean_diff_) - Scalar::all(1);
 	else diff_ -= Scalar::all(1);
-	time_print("CPU mean");
+	//time_print("CPU mean");
 	for (list<Vec3s>::const_iterator it = later_update.begin(); it != later_update.end(); it++)
 	{
 		diff_.at<double>((*it)[0], (*it)[1], (*it)[2]) = kMaxJ;
 	}
-	time_print("CPU Kmaxj");
+	//time_print("CPU Kmaxj");
 }
 
 double PottsModel::PixelEnergy(int pi, int pj) const
@@ -277,7 +277,7 @@ double PottsModel::PixelEnergy(int pi, int pj) const
 
 void PottsModel::MetropolisOnce()
 {
-	time_print("",0);
+	//time_print("",0);
 	vector<int> min_sequence;
 	RNG r;
 	int a_count = 0, r_count = 0, d_count = 0;
@@ -334,7 +334,7 @@ void PottsModel::MetropolisOnce()
 		printf("\ntemperature is %lf, %d is accepted, %d is refused, %d is decreased\n",t_, a_count, r_count, d_count);
 		t_ *= a_c_;
 		num_result_++;
-		time_print("CPU Metropolis Once");
+		//time_print("CPU Metropolis Once");
 }
 
 void PottsModel::GenStatesResult()
@@ -465,7 +465,7 @@ void PottsModel::GenBoundry()
 {
 	//initialize the boundry_ matrix
 	boundry_ = Scalar::all(255);
-	time_print("", 0);
+	//time_print("", 0);
 	int flag = 0;
 	for (int i = 0; i < color_.rows; i++)
 	{
@@ -499,7 +499,7 @@ void PottsModel::GenBoundry()
 			}
 		}
 	}
-	time_print("CPU boundry generate");
+	//time_print("CPU boundry generate");
 }
 
 void PottsModel::ShowDifference() const
@@ -619,10 +619,11 @@ GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int col
 
 void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_space)
 {
+	//time_print("",0);
 	color_ = color;
 	depth_ = depth;
 
-	start_frame_ = 0;
+	start_frame_++;
 	num_result_ = 0;
 	num_result_gen_ = -1;
 	color_space_ = color_space;
@@ -634,6 +635,7 @@ void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_
 	LoadNextFrameWithCuda(states_, depth_.data, PtrStep<float>(d_flowx), PtrStep<float>(d_flowy), rows_, cols_);
 	gpu_gray_ = gpu_new_gray_;
 	ComputeDifferenceWithCuda((const unsigned char (*)[3])color_.data, depth_.data, diff_, rows_, cols_);
+	//time_print("Load Next Frame");
 }
 
 GpuPottsModel::~GpuPottsModel()
@@ -650,12 +652,12 @@ void GpuPottsModel::ComputeDifference()
 
 void GpuPottsModel::Metropolis()
 {
-	time_print("", 0);
+	//time_print("", 0);
 	while(iterable())
 	{	
 		MetropolisOnce();
 	}
-	time_print("Metropolis");
+	//time_print("Metropolis");
 }
 
 void GpuPottsModel::MetropolisOnce()
@@ -706,7 +708,7 @@ void GpuPottsModel::SaveStates(const string &title)
 	if (title == "")
 	{
 		char result_name[20];
-		sprintf(result_name, "GPUresult%d.jpg", num_result_);
+		sprintf(result_name, "GPUresult%d_%d.jpg",start_frame_, num_result_);
 		string s(result_name);
 		imwrite(s, states_result_);
 	}
@@ -718,7 +720,6 @@ void GpuPottsModel::SaveStates(const string &title)
 
 void GpuPottsModel::GenBoundry()
 {
-	time_print("", 0);
 	if (boundry_.isContinuous())
 	{
 		GenBoundryWithCuda(boundry_.data, rows_, cols_);
@@ -728,12 +729,11 @@ void GpuPottsModel::GenBoundry()
 		printf("boundry Mat is not continuous!\n");
 		exit(0);
 	}
-	time_print("GPU boundry generate");
 }
 
 void GpuPottsModel::Label()
 {
-	time_print("", 0);
+	//time_print("", 0);
 	memset(label_table, 0, 10000*sizeof(int));
 	int m = 1;
 	int c1, c2, c3, c4;
@@ -767,7 +767,7 @@ void GpuPottsModel::Label()
 				m++;
 			}
 		}
-	time_print("First scan time");
+	//time_print("First scan time");
 	//label_table
 	int label;
 	for(int i = 1; i < m; i++)
@@ -776,7 +776,7 @@ void GpuPottsModel::Label()
 		while(label_table[label]) label = label_table[label];
 		final_label[i] = label;
 	}
-	time_print("final_label time");
+	//time_print("final_label time");
 	//Second Scan
 	for(int i = 0; i < rows_; i++)
 		for(int j = 0; j < cols_; j++)
@@ -786,7 +786,7 @@ void GpuPottsModel::Label()
 			else states_[i * cols_ + j] = final_label[label] % num_spin_;
 		}
 	num_result_++;
-	time_print("Second Scan time");
+	//time_print("Second Scan time");
 }
 
 void GpuPottsModel::CopyStates()

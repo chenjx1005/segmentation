@@ -6,8 +6,6 @@
 using namespace cv;
 using namespace std;
 
-string dic = "C:/Users/chenjx/Documents/Visual Studio 2010/Projects/cv_segment/cv_segment/ColorOnlyTest/";
-
 void iterate(PottsModel *potts_model)
 {
 	while (potts_model->iterable()){
@@ -60,13 +58,9 @@ int main()
 	//mymain();
 	//!Single frame segment code
 	Mat img;
-	img = imread(dic+"Color01.png");
+	img = imread("ColorOnlyTest/Color01.png");
 	Mat depth;
-	cvtColor(imread(dic+"Depth01.png"), depth, CV_BGR2GRAY);
-
-	Mat img2 = imread(dic + "Color02.png");
-	Mat depth2;
-	cvtColor(imread(dic + "Depth02.png"), depth2, CV_BGR2GRAY);
+	cvtColor(imread("ColorOnlyTest/Depth01.png"), depth, CV_BGR2GRAY);
 
 	CudaSetup(img.rows, img.cols);
 	GpuPottsModel m(img, depth);
@@ -80,22 +74,28 @@ int main()
 	}
 	m.GenBoundry();
 	m.Label();
-	m.ShowStates();
 	m.SaveStates();
 	m.CopyStates();
-	m.LoadNextFrame(img2, depth2);
-	m.ShowStates();
-	m.SaveStates();
-	for(int i = 0; i < 10; i++)
+	char d_title[300];
+	char d_deptitle[300];
+	for(int i = 2; i < 20; i++)
 	{
-		m.MetropolisOnce();
+		time_print("",0);
+		sprintf(d_title, "ColorOnlyTest/Color%02d.png", i);
+		sprintf(d_deptitle, "ColorOnlyTest/Depth%02d.png", i);
+		img = imread(d_title);
+		cvtColor(imread(d_deptitle), depth, CV_BGR2GRAY);
+		m.LoadNextFrame(img, depth);
+		for(int i = 0; i < 10; i++)
+		{
+			m.MetropolisOnce();
+		}
+		m.GenBoundry();
+		m.Label();
+		m.SaveStates();
+		m.CopyStates();
+		time_print("new frame");
 	}
-	m.ShowStates();
-	m.SaveStates();
-	m.GenBoundry();
-	m.Label();
-	m.ShowStates();
-	m.SaveStates();
 	CudaRelease();
 
 	PottsModel *potts_model = new PottsModel(img, depth, PottsModel::RGB);
@@ -141,8 +141,8 @@ int main()
 	for(int i = 1; i < 20; i++)
 	{
 		//if( !(color_cap.read(color) && depth_cap.read(dep)) ) break;
-		sprintf(title, "C:/Users/chenjx/Documents/Visual Studio 2010/Projects/cv_segment/cv_segment/ColorOnlyTest/Color%02d.png", i);
-		sprintf(deptitle, "C:/Users/chenjx/Documents/Visual Studio 2010/Projects/cv_segment/cv_segment/ColorOnlyTest/Depth%02d.png", i);
+		sprintf(title, "ColorOnlyTest/Color%02d.png", i);
+		sprintf(deptitle, "ColorOnlyTest/Depth%02d.png", i);
 		color = imread(title);
 		cvtColor(imread(deptitle), dep, CV_BGR2GRAY);
 		potts2 = new PottsModel(color, dep, *potts_model);

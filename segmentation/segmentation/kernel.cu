@@ -229,7 +229,7 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 									  size_t rows, 
 									  size_t cols)
 {
-	time_print("", 0);
+	//time_print("", 0);
 
 	cudaMemcpy(d_color, color, rows * cols * 3, cudaMemcpyHostToDevice);
 	//Copy depth for the first frame
@@ -238,14 +238,14 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 
 	if(!re++)
 		cudaMemcpy(d_depth, depth, rows * cols, cudaMemcpyHostToDevice);
-	time_print("GPU Copy");
+	//time_print("GPU Copy");
 
 	//Invoke kernel
 	dim3 dimBlock(BLOCK_SIZE/2, BLOCK_SIZE/2, 8);
 	dim3 dimGrid((cols + BLOCK_SIZE - 1)/dimBlock.x, (rows + BLOCK_SIZE - 1)/dimBlock.y);
 	DifferenceKernel<<<dimGrid, dimBlock>>>(d_color, d_depth, d_diff, rows, cols, d_record);
 	
-	time_print("GPU difference kernel");
+	//time_print("GPU difference kernel");
 
 	//Compute Block Count and Sum
 	int block_sum_size = BLOCK_SIZE * BLOCK_SIZE;
@@ -266,7 +266,7 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	for(i = 0; i < block_sum_num; i++) sum += cpu_sum[i], count += cpu_count[i];
 	float mean = sum / count;
 	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
-	time_print("GPU Compute Sum and Mean");
+	//time_print("GPU Compute Sum and Mean");
 
 	//Decorate diff
 	if (mean < FLT_EPSILON) mean = 1.0;
@@ -274,9 +274,9 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	DecorateDiff<<<dec_num, block_sum_size>>>((float *)d_diff, (const int *)d_record, mean, MAX_J);
 
 	//Read diff from device memory
-	cudaMemcpy(diff, d_diff, rows * cols * 8 * sizeof(float), cudaMemcpyDeviceToHost);
+	//cudaMemcpy(diff, d_diff, rows * cols * 8 * sizeof(float), cudaMemcpyDeviceToHost);
 
-	time_print("GPU DECORATE");
+	//time_print("GPU DECORATE");
 }
 
 void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
@@ -295,17 +295,21 @@ void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 0, rows, cols, t, rand_value);
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 1, rows, cols, t, rand_value);
 
-	cudaMemcpy(states, d_states, rows*cols, cudaMemcpyDeviceToHost);
+	//cudaMemcpy(states, d_states, rows*cols, cudaMemcpyDeviceToHost);
 }
 
 void GenBoundryWithCuda(unsigned char *boundry, int rows, int cols)
 {
+	//time_print("", 0);
 	cudaMemset(d_boundry, 255, rows * cols);
+	//time_print("GPU boundry generate memset");
 	dim3 block_size(BLOCK_SIZE, BLOCK_SIZE);
 	dim3 grid_size((cols+BLOCK_SIZE-1) / BLOCK_SIZE, (rows+BLOCK_SIZE-1) / BLOCK_SIZE);
-
+	
 	BoundryKernel<<<grid_size, block_size>>>(d_states, d_boundry, rows, cols);
+	//time_print("GPU boundry generate compute");
 	cudaMemcpy(boundry, d_boundry, rows*cols, cudaMemcpyDeviceToHost);
+	//time_print("GPU boundry generate memcopy");
 }
 
 void CopyStatesToDevice(unsigned char *states, int rows, int cols)
@@ -337,7 +341,7 @@ void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv
 	new_depth = tmp;
 
 	//Copy states to Host
-	cudaMemcpy(states, d_states, size, cudaMemcpyDeviceToHost);
+	//cudaMemcpy(states, d_states, size, cudaMemcpyDeviceToHost);
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
@@ -409,7 +413,40 @@ __global__ void DifferenceKernel(const unsigned char (*color)[3],
 			val = CalDistance(color[current], color[next]);
 			diff[current][k] = val;
 			if (abs(float(depth[current] - depth[next]))>30)
+			{
 				record[current][k] = -1;
+				//increase the depth boundry
+				if (i != 0)
+				{
+					record[current - cols][k] = -1;
+					if (j != 0)
+					{
+						record[current - 1][k] = -1;
+						record[current - cols - 1][k] = -1;
+					}
+					if (j != cols)
+					{
+						record[current + 1][k] = -1;
+						record[current - cols + 1][k] = -1;
+					}
+				}
+				if (i != rows) 
+				{
+					record[current + cols][k] = -1;
+					if (j != 0)
+					{
+						record[current - 1][k] = -1;
+						record[current + cols - 1][k] = -1;
+					}
+					if (j != cols)
+					{
+						record[current + 1][k] = -1;
+						record[current + cols + 1][k] = -1;
+					}
+				}
+				if (j != 0) record[current - 1][k] = -1;
+				if (j != cols) record[current + 1][k] = -1;
+			}
 			else
 				record[current][k] = 1;
 		}
