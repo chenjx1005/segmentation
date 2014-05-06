@@ -10,7 +10,8 @@
 #define BLOCK_SIZE 16
 #define MAX_J 250.0
 #define SPIN 256
-#define kK = 1.3806488e-4
+#define kK 1.3806488e-4
+#define ALPHA 1.5
 
 static unsigned char (*d_color)[3] = 0;
 static unsigned char *d_depth = 0;
@@ -264,7 +265,7 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	int i, count = 0;
 	float sum = 0;
 	for(i = 0; i < block_sum_num; i++) sum += cpu_sum[i], count += cpu_count[i];
-	float mean = sum / count;
+	float mean = sum / count * ALPHA;
 	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
 	//time_print("GPU Compute Sum and Mean");
 
@@ -317,6 +318,11 @@ void CopyStatesToDevice(unsigned char *states, int rows, int cols)
 	cudaMemcpy(d_states, states, rows * cols, cudaMemcpyHostToDevice);
 }
 
+void CopyStatesToHost(unsigned char *states, int rows, int cols)
+{
+	cudaMemcpy(states, d_states, rows * cols, cudaMemcpyDeviceToHost);
+}
+
 void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols)
 {
 	size_t size = rows * cols;
@@ -341,7 +347,7 @@ void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv
 	new_depth = tmp;
 
 	//Copy states to Host
-	//cudaMemcpy(states, d_states, size, cudaMemcpyDeviceToHost);
+	cudaMemcpy(states, d_states, size, cudaMemcpyDeviceToHost);
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 

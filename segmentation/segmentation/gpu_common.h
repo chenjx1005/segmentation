@@ -15,6 +15,7 @@ extern "C" void ComputeDifferenceWithCuda(const unsigned char (*color)[3], const
 extern "C" void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols);
 extern "C" void GenBoundryWithCuda(unsigned char *boundry, int rows, int cols);
 extern "C" void CopyStatesToDevice(unsigned char *states, int rows, int cols);
+extern "C" void CopyStatesToHost(unsigned char *states, int rows, int cols);
 extern "C" void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols);
 
 #endif

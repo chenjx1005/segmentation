@@ -629,11 +629,14 @@ void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_
 	color_space_ = color_space;
 
 	gpu_new_color_.upload(color);
+
 	cvtColor(gpu_new_color_, gpu_new_gray_, CV_BGR2GRAY);
 
 	FarneCalc(gpu_gray_, gpu_new_gray_, d_flowx, d_flowy);
 	LoadNextFrameWithCuda(states_, depth_.data, PtrStep<float>(d_flowx), PtrStep<float>(d_flowy), rows_, cols_);
+	GpuMat temp = gpu_gray_;
 	gpu_gray_ = gpu_new_gray_;
+	gpu_new_gray_ = temp;
 	ComputeDifferenceWithCuda((const unsigned char (*)[3])color_.data, depth_.data, diff_, rows_, cols_);
 	//time_print("Load Next Frame");
 }
@@ -778,13 +781,60 @@ void GpuPottsModel::Label()
 	}
 	//time_print("final_label time");
 	//Second Scan
-	for(int i = 0; i < rows_; i++)
-		for(int j = 0; j < cols_; j++)
+	if (start_frame_ == 1)
+	{
+		for(int i = 0; i < rows_; i++)
+			for(int j = 0; j < cols_; j++)
+			{
+				label = labels_.at<int>(i, j);
+				if (label == INFI) states_[i * cols_ + j] = num_spin_ - 1;
+				else states_[i * cols_ + j] = final_label[label] % num_spin_;
+			}
+	}
+	else
+	{
+		CopyStatesToHost(states_, rows_, cols_);
+		map<int, int> states_map;
+		map<int, vector<int> > states_count;
+		map<int, vector<int> >::iterator it;
+		int s, si;
+
+		for (int i = 0; i < color_.rows; i++)
+			for (int j = 0; j < color_.cols; j++)
+			{
+				s = labels_.at<int>(i,j);
+				//if position i,j is the boundry
+				if ( s == INFI) 
+				{
+					states_[i * cols_ + j] = 0;
+					continue;
+				}
+				s = final_label[s];
+				it = states_count.find(s);
+				if (it == states_count.end()) 
+				{
+					states_count.insert(make_pair(s, vector<int>(num_spin_ - 1)));
+				}
+				else
+				{
+					si = states_[i * cols_ + j];
+					if (si != num_spin_ - 1)
+						(it->second)[si]++;
+				}
+			}
+		for (it = states_count.begin(); it != states_count.end(); it++)
 		{
-			label = labels_.at<int>(i, j);
-			if (label == INFI) states_[i * cols_ + j] = num_spin_ - 1;
-			else states_[i * cols_ + j] = final_label[label] % num_spin_;
+			states_map[it->first] = max_element((it->second).begin(), (it->second).end()) - (it->second).begin();
 		}
+		for (int i = 0; i < color_.rows; i++)
+			for (int j = 0; j < color_.cols; j++)
+			{
+				if (states_[i * cols_ + j] != 0)
+					states_[i * cols_ + j] = states_map[final_label[labels_.at<int>(i,j)]];
+				else
+					states_[i * cols_ + j] = num_spin_ - 1;
+			}
+	}
 	num_result_++;
 	//time_print("Second Scan time");
 }
@@ -792,6 +842,11 @@ void GpuPottsModel::Label()
 void GpuPottsModel::CopyStates()
 {
 	CopyStatesToDevice(states_, rows_, cols_);
+}
+
+void GpuPottsModel::LoadStates()
+{
+	CopyStatesToHost(states_, rows_, cols_);
 }
 
 void GpuPottsModel::Resolve(int m, int n)

@@ -58,9 +58,9 @@ int main()
 	//mymain();
 	//!Single frame segment code
 	Mat img;
-	img = imread("ColorOnlyTest/Color01.png");
+	img = imread("ColorOnlyTest/Color10.png");
 	Mat depth;
-	cvtColor(imread("ColorOnlyTest/Depth01.png"), depth, CV_BGR2GRAY);
+	cvtColor(imread("ColorOnlyTest/Depth10.png"), depth, CV_BGR2GRAY);
 
 	CudaSetup(img.rows, img.cols);
 	GpuPottsModel m(img, depth);
@@ -78,7 +78,7 @@ int main()
 	m.CopyStates();
 	char d_title[300];
 	char d_deptitle[300];
-	for(int i = 2; i < 20; i++)
+	for(int i = 11; i < 91; i++)
 	{
 		time_print("",0);
 		sprintf(d_title, "ColorOnlyTest/Color%02d.png", i);
