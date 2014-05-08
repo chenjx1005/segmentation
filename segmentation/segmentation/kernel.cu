@@ -11,7 +11,7 @@
 #define MAX_J 250.0
 #define SPIN 256
 #define kK 1.3806488e-4
-#define ALPHA 1.5
+#define ALPHA 1.3
 
 static unsigned char (*d_color)[3] = 0;
 static unsigned char *d_depth = 0;
@@ -657,7 +657,10 @@ __global__ void LoadNextKernel(unsigned char *states, const unsigned char *old_s
 		if (x >= 0 && y >=0 && x < rows && y < cols &&
 			abs((int)depth[x * cols + y] - (int)old_depth[i * cols + j]) <= 30)
 		{
-			states[x * cols + y] = old_states[i * cols + j];
+			if (old_states[i * cols + j] != 255)
+				states[x * cols + y] = old_states[i * cols + j];
+			else
+				states[x * cols + y] = (unsigned char)(i * cols + j);
 		}
 	}
 }

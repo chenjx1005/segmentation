@@ -793,12 +793,14 @@ void GpuPottsModel::Label()
 	}
 	else
 	{
+		time_print("", 0);
 		CopyStatesToHost(states_, rows_, cols_);
+		SaveStates();
 		map<int, int> states_map;
 		map<int, vector<int> > states_count;
 		map<int, vector<int> >::iterator it;
 		int s, si;
-
+		time_print("states keep init");
 		for (int i = 0; i < color_.rows; i++)
 			for (int j = 0; j < color_.cols; j++)
 			{
@@ -822,10 +824,12 @@ void GpuPottsModel::Label()
 						(it->second)[si]++;
 				}
 			}
+		time_print("states keep step 1");
 		for (it = states_count.begin(); it != states_count.end(); it++)
 		{
 			states_map[it->first] = max_element((it->second).begin(), (it->second).end()) - (it->second).begin();
 		}
+		time_print("states keep step 2");
 		for (int i = 0; i < color_.rows; i++)
 			for (int j = 0; j < color_.cols; j++)
 			{
@@ -834,6 +838,7 @@ void GpuPottsModel::Label()
 				else
 					states_[i * cols_ + j] = num_spin_ - 1;
 			}
+		time_print("states keep step 3");
 	}
 	num_result_++;
 	//time_print("Second Scan time");
