@@ -167,6 +167,8 @@ private:
 	//TODO: the size of the label_table and final_label
 	unsigned int label_table[10000];
 	unsigned int final_label[10000];
+	unsigned int label_count[10000];
+	unsigned int label_tmp[10000];
 	cv::gpu::GpuMat d_flowx, d_flowy;
 };
 

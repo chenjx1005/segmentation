@@ -63,6 +63,7 @@ int main()
 	cvtColor(imread("ColorOnlyTest/Depth01.png"), depth, CV_BGR2GRAY);
 
 	CudaSetup(img.rows, img.cols);
+	time_print("",0);
 	GpuPottsModel m(img, depth);
 	m.Metropolis();
 	m.GenBoundry();
@@ -76,25 +77,35 @@ int main()
 	m.Label();
 	m.SaveStates();
 	m.CopyStates();
+	time_print("first frame");
 	char d_title[300];
 	char d_deptitle[300];
 	for(int i = 2; i < 20; i++)
 	{
-		//time_print("",0);
+		//clock_t t = clock();
+		time_print("",0);
 		sprintf(d_title, "ColorOnlyTest/Color%02d.png", i);
 		sprintf(d_deptitle, "ColorOnlyTest/Depth%02d.png", i);
 		img = imread(d_title);
 		cvtColor(imread(d_deptitle), depth, CV_BGR2GRAY);
+		//time_print("new frame image Input");
 		m.LoadNextFrame(img, depth);
+		//time_print("new frame LoadNextFrame");
 		for(int i = 0; i < 20; i++)
 		{
 			m.MetropolisOnce();
 		}
+		//time_print("new frame Metropolis");
 		m.GenBoundry();
+		//time_print("new boundry");
 		m.Label();
+		//time_print("new Label");
 		m.SaveStates();
+		//time_print("new frame save");
 		m.CopyStates();
-		//time_print("new frame");
+		time_print("new frame");
+		//printf("this frame total run time is %f ms\n", (clock() - (float)t)/CLOCKS_PER_SEC * 1000);
+		printf("-----------------------\n");
 	}
 	CudaRelease();
 

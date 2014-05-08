@@ -29,14 +29,6 @@ static unsigned char *d_boundry = 0;
 static unsigned char *new_depth = 0;
 static unsigned char *new_states = 0;
 
-void time_print(char *info, int flag)
-{
-	static clock_t t = clock();
-	if(flag)
-		printf("%s run time is %f ms\n", info, (clock() - (float)t)/CLOCKS_PER_SEC * 1000);
-	t = clock();
-}
-
 __device__ float CalDistance(const unsigned char a[3], const unsigned char b[3])
 {
 	return sqrt(pow(float(a[0] - b[0]),2) + pow(float(a[1] - b[1]),2) + pow(float(a[2] - b[2]),2));
@@ -266,7 +258,7 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	float sum = 0;
 	for(i = 0; i < block_sum_num; i++) sum += cpu_sum[i], count += cpu_count[i];
 	float mean = sum / count * ALPHA;
-	printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
+	//printf("sum is %lf, count is %d, mean_diff is %lf when alpha=%lf\n", sum, count, mean, 1.0);
 	//time_print("GPU Compute Sum and Mean");
 
 	//Decorate diff
@@ -296,6 +288,7 @@ void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 0, rows, cols, t, rand_value);
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 1, rows, cols, t, rand_value);
 
+	//unnessary
 	//cudaMemcpy(states, d_states, rows*cols, cudaMemcpyDeviceToHost);
 }
 
@@ -303,14 +296,14 @@ void GenBoundryWithCuda(unsigned char *boundry, int rows, int cols)
 {
 	//time_print("", 0);
 	cudaMemset(d_boundry, 255, rows * cols);
-	//time_print("GPU boundry generate memset");
+	//time_print("    GPU boundry generate memset");
 	dim3 block_size(BLOCK_SIZE, BLOCK_SIZE);
 	dim3 grid_size((cols+BLOCK_SIZE-1) / BLOCK_SIZE, (rows+BLOCK_SIZE-1) / BLOCK_SIZE);
 	
 	BoundryKernel<<<grid_size, block_size>>>(d_states, d_boundry, rows, cols);
-	//time_print("GPU boundry generate compute");
+	//time_print("    GPU boundry generate compute");
 	cudaMemcpy(boundry, d_boundry, rows*cols, cudaMemcpyDeviceToHost);
-	//time_print("GPU boundry generate memcopy");
+	//time_print("    GPU boundry generate memcopy");
 }
 
 void CopyStatesToDevice(unsigned char *states, int rows, int cols)
@@ -346,8 +339,8 @@ void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv
 	d_depth = new_depth;
 	new_depth = tmp;
 
-	//Copy states to Host
-	cudaMemcpy(states, d_states, size, cudaMemcpyDeviceToHost);
+	//Copy states to Host(unnecessary)
+	//cudaMemcpy(states, d_states, size, cudaMemcpyDeviceToHost);
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 

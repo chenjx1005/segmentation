@@ -619,7 +619,7 @@ GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int col
 
 void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_space)
 {
-	//time_print("",0);
+	time_print("",0);
 	color_ = color;
 	depth_ = depth;
 
@@ -628,17 +628,18 @@ void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_
 	num_result_gen_ = -1;
 	color_space_ = color_space;
 
-	gpu_new_color_.upload(color);
-
+	gpu_new_color_.upload(color);	
 	cvtColor(gpu_new_color_, gpu_new_gray_, CV_BGR2GRAY);
 
 	FarneCalc(gpu_gray_, gpu_new_gray_, d_flowx, d_flowy);
+
 	LoadNextFrameWithCuda(states_, depth_.data, PtrStep<float>(d_flowx), PtrStep<float>(d_flowy), rows_, cols_);
+
 	GpuMat temp = gpu_gray_;
 	gpu_gray_ = gpu_new_gray_;
 	gpu_new_gray_ = temp;
+
 	ComputeDifferenceWithCuda((const unsigned char (*)[3])color_.data, depth_.data, diff_, rows_, cols_);
-	//time_print("Load Next Frame");
 }
 
 GpuPottsModel::~GpuPottsModel()
@@ -793,52 +794,47 @@ void GpuPottsModel::Label()
 	}
 	else
 	{
-		time_print("", 0);
 		CopyStatesToHost(states_, rows_, cols_);
-		SaveStates();
-		map<int, int> states_map;
-		map<int, vector<int> > states_count;
-		map<int, vector<int> >::iterator it;
-		int s, si;
-		time_print("states keep init");
+		memset(label_table, 0, 10000*sizeof(int));
+		memset(label_count, 0, 10000*sizeof(int));
+		memset(label_tmp, 0, 10000*sizeof(int));
+		int s, old_s, last_s;
 		for (int i = 0; i < color_.rows; i++)
 			for (int j = 0; j < color_.cols; j++)
 			{
-				s = labels_.at<int>(i,j);
-				//if position i,j is the boundry
-				if ( s == INFI) 
-				{
-					states_[i * cols_ + j] = 0;
-					continue;
-				}
-				s = final_label[s];
-				it = states_count.find(s);
-				if (it == states_count.end()) 
-				{
-					states_count.insert(make_pair(s, vector<int>(num_spin_ - 1)));
-				}
+				label = labels_.at<int>(i, j);
+				if (label == INFI) continue;
 				else
 				{
-					si = states_[i * cols_ + j];
-					if (si != num_spin_ - 1)
-						(it->second)[si]++;
+					s = final_label[label];
+					//states of this position in last frame
+					last_s = states_[i * cols_ + j];
+					if ((old_s = label_table[s]) != 0)
+					{
+						if (old_s == last_s) label_count[s]++;
+						else if (label_tmp[s] == last_s)
+						{
+							if (label_count[s] == 0) label_table[s] = last_s;
+							else label_count[s]--;
+						}
+						else
+						{
+							label_tmp[s] = last_s;
+						}
+					}
+					else
+					{
+						label_table[s] = states_[i * cols_ + j];
+					}
 				}
 			}
-		time_print("states keep step 1");
-		for (it = states_count.begin(); it != states_count.end(); it++)
-		{
-			states_map[it->first] = max_element((it->second).begin(), (it->second).end()) - (it->second).begin();
-		}
-		time_print("states keep step 2");
 		for (int i = 0; i < color_.rows; i++)
 			for (int j = 0; j < color_.cols; j++)
 			{
-				if (states_[i * cols_ + j] != 0)
-					states_[i * cols_ + j] = states_map[final_label[labels_.at<int>(i,j)]];
-				else
-					states_[i * cols_ + j] = num_spin_ - 1;
+				label = labels_.at<int>(i, j);
+				if (label == INFI) states_[i * cols_ + j] = num_spin_ - 1;
+				else states_[i * cols_ + j] = label_table[final_label[label]];
 			}
-		time_print("states keep step 3");
 	}
 	num_result_++;
 	//time_print("Second Scan time");
