@@ -13,6 +13,8 @@
 #define kK 1.3806488e-4
 #define ALPHA 1.3
 
+__constant__ int P[8][2] = {{0,-1}, {0,1}, {-1,0}, {1,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}};
+
 static unsigned char (*d_color)[3] = 0;
 static unsigned char *d_depth = 0;
 static float (*d_diff)[8] = 0;
@@ -237,7 +239,7 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	dim3 dimBlock(BLOCK_SIZE/2, BLOCK_SIZE/2, 8);
 	dim3 dimGrid((cols + BLOCK_SIZE - 1)/dimBlock.x, (rows + BLOCK_SIZE - 1)/dimBlock.y);
 	DifferenceKernel<<<dimGrid, dimBlock>>>(d_color, d_depth, d_diff, rows, cols, d_record);
-	
+	cudaThreadSynchronize();
 	//time_print("GPU difference kernel");
 
 	//Compute Block Count and Sum
@@ -248,7 +250,7 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	size_t count_size = block_sum_num * sizeof(unsigned int);
 	
 	SumKernel<<<block_sum_num, block_sum_size>>>((const float *)d_diff, odiff, (const int *)d_record, orecord, n);
-
+	cudaThreadSynchronize();
 	//Read sum and count from device memory
 	cudaMemcpy(cpu_count, orecord, count_size, cudaMemcpyDeviceToHost);
 	cudaMemcpy(cpu_sum, odiff, sum_size, cudaMemcpyDeviceToHost);
@@ -265,7 +267,7 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	if (mean < FLT_EPSILON) mean = 1.0;
 	int dec_num = (n + block_sum_size - 1) / block_sum_size;
 	DecorateDiff<<<dec_num, block_sum_size>>>((float *)d_diff, (const int *)d_record, mean, MAX_J);
-
+	cudaThreadSynchronize();
 	//Read diff from device memory
 	//cudaMemcpy(diff, d_diff, rows * cols * 8 * sizeof(float), cudaMemcpyDeviceToHost);
 
@@ -280,14 +282,16 @@ void MetropolisOnceWithCuda(float t, unsigned char *states, int rows, int cols)
 		cudaMemcpy(d_states, states, rows * cols, cudaMemcpyHostToDevice);
 
 	generate<<<cols / 64, 64>>>((unsigned int *)rand_value, devStates, rows);
-
+	cudaThreadSynchronize();
+	
 	dim3 block_num(8,8,8);
 	dim3 grid_num(((cols+1)/2+7)/8, ((rows+1)/2+7)/8, 1); 
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 0, 0, rows, cols, t, rand_value); 
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 0, 1, rows, cols, t, rand_value);
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 0, rows, cols, t, rand_value);
 	Metropolis<<<grid_num, block_num>>>(d_diff, d_states, 1, 1, rows, cols, t, rand_value);
-
+	cudaThreadSynchronize();
+	
 	//unnessary
 	//cudaMemcpy(states, d_states, rows*cols, cudaMemcpyDeviceToHost);
 }
@@ -301,6 +305,7 @@ void GenBoundryWithCuda(unsigned char *boundry, int rows, int cols)
 	dim3 grid_size((cols+BLOCK_SIZE-1) / BLOCK_SIZE, (rows+BLOCK_SIZE-1) / BLOCK_SIZE);
 	
 	BoundryKernel<<<grid_size, block_size>>>(d_states, d_boundry, rows, cols);
+	cudaThreadSynchronize();
 	//time_print("    GPU boundry generate compute");
 	cudaMemcpy(boundry, d_boundry, rows*cols, cudaMemcpyDeviceToHost);
 	//time_print("    GPU boundry generate memcopy");
@@ -328,7 +333,7 @@ void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv
 
 	LoadNextKernel<<<grid_size, block_size>>>(new_states, d_states, new_depth, d_depth, flow_x, flow_y, rows, cols);
 	LoadNextUpdateKernel<<<grid_size, block_size>>>(new_states, rows, cols);
-
+	cudaThreadSynchronize();
 	//swap new and old memory
 	unsigned char *tmp;
 	tmp = d_states;
@@ -511,7 +516,6 @@ __global__ void Metropolis(const float (*diff)[8], unsigned char *states, int x,
 {
 	__shared__ float energy[8][8][8]; 
 
-	const int P[8][2] = {{0,-1}, {0,1}, {-1,0}, {1,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}};
 	int i;
 	//TODO: out of rows and cols range
 	int p_i = blockIdx.y * blockDim.y + threadIdx.y;

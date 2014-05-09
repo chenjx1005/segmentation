@@ -88,20 +88,20 @@ int main()
 		sprintf(d_deptitle, "ColorOnlyTest/Depth%02d.png", i);
 		img = imread(d_title);
 		cvtColor(imread(d_deptitle), depth, CV_BGR2GRAY);
-		//time_print("new frame image Input");
+		time_print("new frame image Input");
 		m.LoadNextFrame(img, depth);
-		//time_print("new frame LoadNextFrame");
+		time_print("new frame LoadNextFrame");
 		for(int i = 0; i < 20; i++)
 		{
 			m.MetropolisOnce();
 		}
-		//time_print("new frame Metropolis");
+		time_print("new frame Metropolis");
 		m.GenBoundry();
-		//time_print("new boundry");
+		time_print("new boundry");
 		m.Label();
-		//time_print("new Label");
+		time_print("new Label");
 		m.SaveStates();
-		//time_print("new frame save");
+		time_print("new frame save");
 		m.CopyStates();
 		time_print("new frame");
 		//printf("this frame total run time is %f ms\n", (clock() - (float)t)/CLOCKS_PER_SEC * 1000);

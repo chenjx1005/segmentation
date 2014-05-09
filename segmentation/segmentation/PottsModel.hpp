@@ -43,7 +43,7 @@ public:
 	cv::Mat get_boundrymap() const { return boundry_; }
 	void set_temperature(double t) { t_ = t; }
 	void Freeze() { t_ = min_t_; }
-	void ShowBoundry(int milliseconds=0) const
+	virtual void ShowBoundry(int milliseconds=0) const
 	{
 		cv::imshow("PottsModel", boundry_);
 		cv::waitKey(milliseconds);
@@ -144,6 +144,7 @@ public:
 	virtual void ShowStates(int milliseconds=0);
 	virtual void SaveStates(const std::string &title="");
 	virtual void GenBoundry();
+	virtual void ShowBoundry(int milliseconds=0) const {};
 	//faster FastLabel
 	void Label();
 	void CopyStates();
@@ -152,6 +153,7 @@ public:
 
 	uchar *states_;
 	float (*diff_)[8];
+	uchar *boundry_;
 	cv::gpu::GpuMat gpu_color_;
 	cv::gpu::GpuMat gpu_gray_;
 	cv::gpu::GpuMat gpu_new_color_;

@@ -606,9 +606,11 @@ GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int col
 	gpu_new_color_(rows_, cols_, CV_8UC3), gpu_new_gray_(rows_, cols_, CV_8U)
 {
 	diff_ = new float[rows_ * cols_][8];
+	states_ = new uchar[rows_ * cols_];
+	boundry_ = new uchar[rows_ * cols_];
 	cvtColor(gpu_color_, gpu_gray_, CV_BGR2GRAY);
 	if(depth.isContinuous())
-		states_ = depth.data;
+		memcpy(states_, depth.data, rows_ * cols_);
 	else
 	{
 		cout<<"depth mat is not continuous! reload the depth image"<<endl;
@@ -645,6 +647,8 @@ void GpuPottsModel::LoadNextFrame(const Mat &color, const Mat &depth, int color_
 GpuPottsModel::~GpuPottsModel()
 {
 	delete [] diff_;
+	delete [] states_;
+	delete [] boundry_;
 }
 
 void GpuPottsModel::ComputeDifference()
@@ -724,15 +728,7 @@ void GpuPottsModel::SaveStates(const string &title)
 
 void GpuPottsModel::GenBoundry()
 {
-	if (boundry_.isContinuous())
-	{
-		GenBoundryWithCuda(boundry_.data, rows_, cols_);
-	}
-	else
-	{
-		printf("boundry Mat is not continuous!\n");
-		exit(0);
-	}
+	GenBoundryWithCuda(boundry_, rows_, cols_);
 }
 
 void GpuPottsModel::Label()
@@ -745,7 +741,7 @@ void GpuPottsModel::Label()
 	for(int i = 0; i < rows_; i++)
 		for(int j = 0; j < cols_; j++)
 		{
-			if (boundry_.at<uchar>(i, j) == 0) labels_.at<int>(i, j) = INFI;
+			if (boundry_[i * cols_ + j] == 0) labels_.at<int>(i, j) = INFI;
 			else if ((c3 = c(i, j, 3)) != INFI) labels_.at<int>(i, j) = c3;
 			else if ((c1 = c(i, j, 1)) != INFI)
 			{
