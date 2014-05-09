@@ -58,6 +58,8 @@ __global__ void DifferenceKernel(const unsigned char (*color)[3],
 									  size_t cols,
 									  int (*record)[8]);
 
+__global__ void DifferenceKernel_step2(size_t rows, size_t cols, int (*record)[8]);
+
 __global__ void SumKernel(const float *diff,
 						  float *odiff,
 						  const int *record,
@@ -239,6 +241,7 @@ void ComputeDifferenceWithCuda(const unsigned char (*color)[3],
 	dim3 dimBlock(BLOCK_SIZE/2, BLOCK_SIZE/2, 8);
 	dim3 dimGrid((cols + BLOCK_SIZE - 1)/dimBlock.x, (rows + BLOCK_SIZE - 1)/dimBlock.y);
 	DifferenceKernel<<<dimGrid, dimBlock>>>(d_color, d_depth, d_diff, rows, cols, d_record);
+	DifferenceKernel_step2<<<dimGrid, dimBlock>>>(rows, cols, d_record);
 	cudaThreadSynchronize();
 	//time_print("GPU difference kernel");
 
@@ -419,40 +422,79 @@ __global__ void DifferenceKernel(const unsigned char (*color)[3],
 			if (abs(float(depth[current] - depth[next]))>30)
 			{
 				record[current][k] = -1;
-				//increase the depth boundry
-				if (i != 0)
-				{
-					record[current - cols][k] = -1;
-					if (j != 0)
-					{
-						record[current - 1][k] = -1;
-						record[current - cols - 1][k] = -1;
-					}
-					if (j != cols)
-					{
-						record[current + 1][k] = -1;
-						record[current - cols + 1][k] = -1;
-					}
-				}
-				if (i != rows) 
-				{
-					record[current + cols][k] = -1;
-					if (j != 0)
-					{
-						record[current - 1][k] = -1;
-						record[current + cols - 1][k] = -1;
-					}
-					if (j != cols)
-					{
-						record[current + 1][k] = -1;
-						record[current + cols + 1][k] = -1;
-					}
-				}
-				if (j != 0) record[current - 1][k] = -1;
-				if (j != cols) record[current + 1][k] = -1;
 			}
 			else
 				record[current][k] = 1;
+		}
+	}
+}
+
+__global__ void DifferenceKernel_step2(size_t rows, size_t cols, int (*record)[8])
+{
+	int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int j = blockIdx.x * blockDim.x + threadIdx.x;
+	int k = threadIdx.z;
+	int limit_i, limit_j;
+	int current = i * cols + j;
+	int next;
+	if (i < rows && j < cols)
+	{
+		switch (k)
+		{
+		case 0:
+			limit_i = -1;
+			limit_j = 0;
+			next = i*cols+j-1;
+			break;
+		case 1:
+			limit_i = -1;
+			limit_j = cols-1;
+			next = i*cols+j+1;
+			break;
+		case 2:
+			limit_i = 0;
+			limit_j = -1;
+			next = (i-1)*cols+j;
+			break;
+		case 3:
+			limit_i = rows-1;
+			limit_j = -1;
+			next = (i+1)*cols+j;
+			break;
+		case 4:
+			limit_i = 0;
+			limit_j = 0;
+			next = (i-1)*cols+j-1;
+			break;
+		case 5:
+			limit_i = rows-1;
+			limit_j = cols-1;
+			next = (i+1)*cols+j+1;
+			break;
+		case 6:
+			limit_i = 0;
+			limit_j = cols-1;
+			next = (i-1)*cols+j+1;
+			break;
+		case 7:
+			limit_i = rows-1;
+			limit_j = 0;
+			next = (i+1)*cols+j-1;
+			break;
+		}
+		if(i != limit_i && j != limit_j)
+		{
+			if (record[next][k] == -1)
+			{
+				record[current][0] = -1;
+				record[current][1] = -1;
+				record[current][2] = -1;
+				record[current][3] = -1;
+				record[current][4] = -1;
+				record[current][5] = -1;
+				record[current][6] = -1;
+				record[current][7] = -1;
+			}
 		}
 	}
 }

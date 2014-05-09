@@ -91,7 +91,7 @@ int main()
 		time_print("new frame image Input");
 		m.LoadNextFrame(img, depth);
 		time_print("new frame LoadNextFrame");
-		for(int i = 0; i < 20; i++)
+		for(int i = 0; i < 5; i++)
 		{
 			m.MetropolisOnce();
 		}
