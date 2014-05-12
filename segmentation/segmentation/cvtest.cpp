@@ -2,6 +2,7 @@
 #include "FastLabel.hpp"
 #include "OpticalFlow.cpp"
 #include "gpu_common.h"
+#include "KinectDriver.h"
 
 using namespace cv;
 using namespace std;
@@ -55,16 +56,11 @@ void rest_iterate(PottsModel *potts_model)
 
 int main()
 {
-	//mymain();
-	//!Single frame segment code
-	Mat img;
-	img = imread("ColorOnlyTest/Color01.png");
-	Mat depth;
-	cvtColor(imread("ColorOnlyTest/Depth01.png"), depth, CV_BGR2GRAY);
+	KinectDriver kin;
 
-	CudaSetup(img.rows, img.cols);
+	CudaSetup(kin.rows, kin.cols);
 	time_print("",0);
-	GpuPottsModel m(img, depth);
+	GpuPottsModel m(kin.nextColor(), kin.nextDepth());
 	m.Metropolis();
 	m.GenBoundry();
 	m.Label();
@@ -80,34 +76,33 @@ int main()
 	time_print("first frame");
 	char d_title[300];
 	char d_deptitle[300];
-	for(int i = 2; i < 20; i++)
+	while(waitKey(5) == -1)
 	{
-		//clock_t t = clock();
 		time_print("",0);
-		sprintf(d_title, "ColorOnlyTest/Color%02d.png", i);
-		sprintf(d_deptitle, "ColorOnlyTest/Depth%02d.png", i);
-		img = imread(d_title);
-		cvtColor(imread(d_deptitle), depth, CV_BGR2GRAY);
-		time_print("new frame image Input");
-		m.LoadNextFrame(img, depth);
-		time_print("new frame LoadNextFrame");
+		//sprintf(d_title, "ColorOnlyTest/Color%02d.png", i);
+		//sprintf(d_deptitle, "ColorOnlyTest/Depth%02d.png", i);
+		//img = imread(d_title);
+		//cvtColor(imread(d_deptitle), depth, CV_BGR2GRAY);
+		m.LoadNextFrame(kin.nextColor(), kin.nextDepth());
 		for(int i = 0; i < 5; i++)
 		{
 			m.MetropolisOnce();
 		}
-		time_print("new frame Metropolis");
 		m.GenBoundry();
-		time_print("new boundry");
 		m.Label();
-		time_print("new Label");
-		m.SaveStates();
-		time_print("new frame save");
+		//m.SaveStates();
+		m.ShowStates(1);
 		m.CopyStates();
 		time_print("new frame");
-		//printf("this frame total run time is %f ms\n", (clock() - (float)t)/CLOCKS_PER_SEC * 1000);
 		printf("-----------------------\n");
 	}
 	CudaRelease();
+	exit(0);
+
+	Mat img;
+	img = imread("ColorOnlyTest/Color01.png");
+	Mat depth;
+	cvtColor(imread("ColorOnlyTest/Depth01.png"), depth, CV_BGR2GRAY);
 
 	PottsModel *potts_model = new PottsModel(img, depth, PottsModel::RGB);
 	iterate(potts_model);
