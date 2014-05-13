@@ -602,15 +602,19 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 
 GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
 	:BasicPottsModel(color, depth, color_space), labels_(rows_, cols_, CV_32S),
-	INFI(256255), gpu_color_(color_),
-	gpu_new_color_(rows_, cols_, CV_8UC3), gpu_new_gray_(rows_, cols_, CV_8U)
+	INFI(256255), gpu_color_(color_), old_depth_(rows_, cols_, CV_8U),
+	gpu_new_color_(rows_, cols_, CV_8UC3), gpu_new_gray_(rows_, cols_, CV_8U),
+	BOUNDRY_THRESHOLD(700), MIN_LABEL_COUNT(100), STATES_KEEP_THRESHOLD(0.3), DEPTH_THRESHOLD(30)
 {
 	diff_ = new float[rows_ * cols_][8];
 	states_ = new uchar[rows_ * cols_];
 	boundry_ = new uchar[rows_ * cols_];
 	cvtColor(gpu_color_, gpu_gray_, CV_BGR2GRAY);
 	if(depth.isContinuous())
+	{
 		memcpy(states_, depth.data, rows_ * cols_);
+		depth.copyTo(old_depth_);
+	}
 	else
 	{
 		cout<<"depth mat is not continuous! reload the depth image"<<endl;
@@ -729,12 +733,69 @@ void GpuPottsModel::SaveStates(const string &title)
 void GpuPottsModel::GenBoundry()
 {
 	GenBoundryWithCuda(boundry_, rows_, cols_);
+	//eliminate the small boundry use fast label
+	memset(label_table, 0, 10000*sizeof(int));
+	int m = 1;
+	int c1, c3;
+	//First Scan
+	for(int i = 0; i < rows_; i++)
+		for(int j = 0; j < cols_; j++)
+		{
+			if (boundry_[i * cols_ + j] == 255) labels_.at<int>(i, j) = INFI;
+			else if ((c3 = c(i, j, 3)) != INFI)
+			{
+				labels_.at<int>(i, j) = c3;
+				if ((c1 = c(i, j, 1)) != INFI) 
+				{ 
+					if (c3 != c1) Resolve(c3, c1);
+				} 
+			}
+			else if ((c1 = c(i, j, 1)) != INFI)
+			{
+				labels_.at<int>(i, j) = c1; 
+			}
+			else
+			{
+				//prevent the label set 255
+				labels_.at<int>(i, j) = (m % 256 == 255 ? (m+=2) : m);
+				m++;
+			}
+		}
+	//label_table
+	int label;
+	for(int i = 1; i < m; i++)
+	{
+		label = i;
+		while(label_table[label]) label = label_table[label];
+		final_label[i] = label;
+	}
+	//Second Scan
+	memset(label_count, 0, 10000*sizeof(int));
+	for(int i = 0; i < rows_; i++)
+		for(int j = 0; j < cols_; j++)
+		{
+			label = labels_.at<int>(i, j);
+			if (label != INFI)
+			{
+				label_count[final_label[label]]++;
+			}
+		}
+	for(int i = 0; i < rows_; i++)
+		for(int j = 0; j < cols_; j++)
+		{
+			label = labels_.at<int>(i, j);
+			if (label != INFI && label_count[final_label[label]] < BOUNDRY_THRESHOLD)
+			{
+				boundry_[i * cols_ + j] = 255;
+			}
+		}
 }
 
 void GpuPottsModel::Label()
 {
 	//time_print("", 0);
 	memset(label_table, 0, 10000*sizeof(int));
+	memset(label_count, 0, 10000*sizeof(int));
 	int m = 1;
 	int c1, c2, c3, c4;
 	//First Scan
@@ -785,24 +846,42 @@ void GpuPottsModel::Label()
 			{
 				label = labels_.at<int>(i, j);
 				if (label == INFI) states_[i * cols_ + j] = num_spin_ - 1;
-				else states_[i * cols_ + j] = final_label[label] % num_spin_;
+				else 
+				{
+					label_count[final_label[label]]++;
+				}
+			}
+		uchar last_states = 1;
+		for(int i = 0; i < rows_; i++)
+			for(int j = 0; j < cols_; j++)
+			{
+				label = labels_.at<int>(i, j);
+				if (label != INFI)
+				{
+					if (label_count[final_label[label]] > MIN_LABEL_COUNT)
+						states_[i * cols_ + j] = last_states = final_label[label] % num_spin_;
+					else
+						states_[i * cols_ + j] = last_states;
+				}
 			}
 	}
 	else
 	{
 		CopyStatesToHost(states_, rows_, cols_);
 		memset(label_table, 0, 10000*sizeof(int));
-		memset(label_count, 0, 10000*sizeof(int));
 		memset(label_tmp, 0, 10000*sizeof(int));
+		memset(label_count2, 0, 10000*sizeof(int));
 		int s, old_s, last_s;
 		for (int i = 0; i < color_.rows; i++)
 			for (int j = 0; j < color_.cols; j++)
 			{
 				label = labels_.at<int>(i, j);
 				if (label == INFI) continue;
+				else if(abs(depth_.at<uchar>(i, j) - old_depth_.at<uchar>(i, j)) > DEPTH_THRESHOLD) continue;
 				else
 				{
 					s = final_label[label];
+					label_count2[s]++;
 					//states of this position in last frame
 					last_s = states_[i * cols_ + j];
 					if ((old_s = label_table[s]) != 0)
@@ -824,12 +903,22 @@ void GpuPottsModel::Label()
 					}
 				}
 			}
+		uchar last_states = 1;
 		for (int i = 0; i < color_.rows; i++)
 			for (int j = 0; j < color_.cols; j++)
 			{
 				label = labels_.at<int>(i, j);
+				s = final_label[label];
 				if (label == INFI) states_[i * cols_ + j] = num_spin_ - 1;
-				else states_[i * cols_ + j] = label_table[final_label[label]];
+				else if (label_count2[s] < MIN_LABEL_COUNT)
+					states_[i * cols_ + j] = last_states;
+				else if (label_count[s] > (unsigned int)(label_count2[s] * STATES_KEEP_THRESHOLD))
+					states_[i * cols_ + j] = last_states = label_table[s];
+				else
+				{
+					cout << i << " " << j << " " << label_count[s] * 1.0 / label_count2[s] << endl;
+					states_[i * cols_ + j] = last_states = (label_table[s] == 1 ? 2 : label_table[s] - 1);
+				}
 			}
 	}
 	num_result_++;
