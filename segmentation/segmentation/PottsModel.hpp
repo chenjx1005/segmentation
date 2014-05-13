@@ -158,6 +158,7 @@ public:
 	cv::gpu::GpuMat gpu_gray_;
 	cv::gpu::GpuMat gpu_new_color_;
 	cv::gpu::GpuMat gpu_new_gray_;
+	cv::Mat old_depth_;
 
 private:
 	virtual double PixelEnergy(int pi, int pj) const;
@@ -171,8 +172,12 @@ private:
 	unsigned int final_label[10000];
 	unsigned int label_count[10000];
 	unsigned int label_tmp[10000];
+	unsigned int label_count2[10000];
 	cv::gpu::GpuMat d_flowx, d_flowy;
 	const int BOUNDRY_THRESHOLD;
+	const int MIN_LABEL_COUNT;
+	const float STATES_KEEP_THRESHOLD;
+	const int DEPTH_THRESHOLD;
 };
 
 #endif

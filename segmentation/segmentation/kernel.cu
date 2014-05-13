@@ -11,7 +11,7 @@
 #define MAX_J 250.0
 #define SPIN 256
 #define kK 1.3806488e-4
-#define ALPHA 1.3
+#define ALPHA 1.2
 
 __constant__ int P[8][2] = {{0,-1}, {0,1}, {-1,0}, {1,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}};
 
