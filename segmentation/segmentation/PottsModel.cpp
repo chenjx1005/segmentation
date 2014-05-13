@@ -603,7 +603,8 @@ double PottsModel::Distance(const Vec3b &a, const Vec3b &b) const
 GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int color_space)
 	:BasicPottsModel(color, depth, color_space), labels_(rows_, cols_, CV_32S),
 	INFI(256255), gpu_color_(color_),
-	gpu_new_color_(rows_, cols_, CV_8UC3), gpu_new_gray_(rows_, cols_, CV_8U)
+	gpu_new_color_(rows_, cols_, CV_8UC3), gpu_new_gray_(rows_, cols_, CV_8U),
+	BOUNDRY_THRESHOLD(500)
 {
 	diff_ = new float[rows_ * cols_][8];
 	states_ = new uchar[rows_ * cols_];
@@ -729,6 +730,62 @@ void GpuPottsModel::SaveStates(const string &title)
 void GpuPottsModel::GenBoundry()
 {
 	GenBoundryWithCuda(boundry_, rows_, cols_);
+	//eliminate the small boundry use fast label
+	memset(label_table, 0, 10000*sizeof(int));
+	int m = 1;
+	int c1, c3;
+	//First Scan
+	for(int i = 0; i < rows_; i++)
+		for(int j = 0; j < cols_; j++)
+		{
+			if (boundry_[i * cols_ + j] == 255) labels_.at<int>(i, j) = INFI;
+			else if ((c3 = c(i, j, 3)) != INFI)
+			{
+				labels_.at<int>(i, j) = c3;
+				if ((c1 = c(i, j, 1)) != INFI) 
+				{ 
+					if (c3 != c1) Resolve(c3, c1);
+				} 
+			}
+			else if ((c1 = c(i, j, 1)) != INFI)
+			{
+				labels_.at<int>(i, j) = c1; 
+			}
+			else
+			{
+				//prevent the label set 255
+				labels_.at<int>(i, j) = (m % 256 == 255 ? (m+=2) : m);
+				m++;
+			}
+		}
+	//label_table
+	int label;
+	for(int i = 1; i < m; i++)
+	{
+		label = i;
+		while(label_table[label]) label = label_table[label];
+		final_label[i] = label;
+	}
+	//Second Scan
+	memset(label_count, 0, 10000*sizeof(int));
+	for(int i = 0; i < rows_; i++)
+		for(int j = 0; j < cols_; j++)
+		{
+			label = labels_.at<int>(i, j);
+			if (label != INFI)
+			{
+				label_count[final_label[label]]++;
+			}
+		}
+	for(int i = 0; i < rows_; i++)
+		for(int j = 0; j < cols_; j++)
+		{
+			label = labels_.at<int>(i, j);
+			if (label != INFI && label_count[final_label[label]] < BOUNDRY_THRESHOLD)
+			{
+				boundry_[i * cols_ + j] = 255;
+			}
+		}
 }
 
 void GpuPottsModel::Label()

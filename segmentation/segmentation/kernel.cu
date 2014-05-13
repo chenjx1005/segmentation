@@ -679,8 +679,20 @@ __global__ void BoundryKernel(const unsigned char *states, unsigned char *boundr
 			else pre0 = (i == 0 ? s : states[(i-2) * cols + j]), pre1 = (i == 0 ? s : states[(i-1) * cols + j]);
 			if (pre0 != pre1 && pre1 != s) b = 0;
 		}
-
 		boundry[i * cols + j] = b;
+		
+		__syncthreads();
+
+		if (t_i > 0 && t_i < blockDim.y - 1 && t_j > 0 && t_j < blockDim.x - 1)
+		{
+			if (!(boundry[i * cols + j - 1] == 0 ||
+				boundry[i * cols + j + 1] == 0 ||
+				boundry[(i-1) * cols + j] == 0 ||
+				boundry[(i+1) * cols + j] == 0))
+			{
+				boundry[i * cols + j] = 255;
+			}
+		}
 	}
 }
 

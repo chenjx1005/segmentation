@@ -172,6 +172,7 @@ private:
 	unsigned int label_count[10000];
 	unsigned int label_tmp[10000];
 	cv::gpu::GpuMat d_flowx, d_flowy;
+	const int BOUNDRY_THRESHOLD;
 };
 
 #endif
