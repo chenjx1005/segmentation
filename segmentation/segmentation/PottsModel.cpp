@@ -604,7 +604,7 @@ GpuPottsModel::GpuPottsModel(const cv::Mat &color, const cv::Mat &depth, int col
 	:BasicPottsModel(color, depth, color_space), labels_(rows_, cols_, CV_32S),
 	INFI(256255), gpu_color_(color_), old_depth_(rows_, cols_, CV_8U),
 	gpu_new_color_(rows_, cols_, CV_8UC3), gpu_new_gray_(rows_, cols_, CV_8U),
-	BOUNDRY_THRESHOLD(700), MIN_LABEL_COUNT(100), STATES_KEEP_THRESHOLD(0.3), DEPTH_THRESHOLD(30)
+	BOUNDRY_THRESHOLD(800), MIN_LABEL_COUNT(100), STATES_KEEP_THRESHOLD(0.3), DEPTH_THRESHOLD(30)
 {
 	diff_ = new float[rows_ * cols_][8];
 	states_ = new uchar[rows_ * cols_];
