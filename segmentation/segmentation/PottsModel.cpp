@@ -916,11 +916,12 @@ void GpuPottsModel::Label()
 					states_[i * cols_ + j] = last_states = label_table[s];
 				else
 				{
-					cout << i << " " << j << " " << label_count[s] * 1.0 / label_count2[s] << endl;
+					//cout << i << " " << j << " " << label_count[s] * 1.0 / label_count2[s] << endl;
 					states_[i * cols_ + j] = last_states = (label_table[s] == 1 ? 2 : label_table[s] - 1);
 				}
 			}
 	}
+	depth_.copyTo(old_depth_);
 	num_result_++;
 	//time_print("Second Scan time");
 }
