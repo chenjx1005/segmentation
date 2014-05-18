@@ -16,6 +16,7 @@ extern "C" inline void time_print(char *info, int flag=1)
 	t = clock();
 }
 
+//host function used in PottsModel
 extern "C" cudaError_t CudaSetup(size_t rows, size_t cols);
 extern "C" void CudaRelease();
 extern "C" void ComputeDifferenceWithCuda(const unsigned char (*color)[3], const unsigned char *depth, float (*diff)[8], size_t rows, size_t cols);
@@ -24,5 +25,8 @@ extern "C" void GenBoundryWithCuda(unsigned char *boundry, int rows, int cols);
 extern "C" void CopyStatesToDevice(unsigned char *states, int rows, int cols);
 extern "C" void CopyStatesToHost(unsigned char *states, int rows, int cols);
 extern "C" void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols);
+
+//host function used in KinectDriver
+extern "C" void PixelFilter(uchar *depth, int rows, int cols);
 
 #endif

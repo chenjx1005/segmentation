@@ -911,9 +911,17 @@ void GpuPottsModel::Label()
 				s = final_label[label];
 				if (label == INFI) states_[i * cols_ + j] = num_spin_ - 1;
 				else if (label_count2[s] < MIN_LABEL_COUNT)
-					states_[i * cols_ + j] = last_states;
+				{
+					if (label_count[s] > (unsigned int)(label_count2[s] * STATES_KEEP_THRESHOLD))
+						states_[i * cols_ + j] = last_states;
+					else
+					{
+						states_[i * cols_ + j] = last_states = (label_table[s] == 1 ? 2 : label_table[s] - 1);
+					}
+				}
 				else if (label_count[s] > (unsigned int)(label_count2[s] * STATES_KEEP_THRESHOLD))
 					states_[i * cols_ + j] = last_states = label_table[s];
+				//new states
 				else
 				{
 					//cout << i << " " << j << " " << label_count[s] * 1.0 / label_count2[s] << endl;

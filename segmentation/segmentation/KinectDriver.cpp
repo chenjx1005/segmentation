@@ -2,6 +2,7 @@
 #include <iostream>
 #include <time.h>
 
+#include "gpu_common.h"
 #include "KinectDriver.h"
 
 using namespace std;
@@ -77,6 +78,12 @@ const Mat &KinectDriver::nextDepth()
 	else
 	{
 		cout<<"KinectDriver::nextDepth() status is wrong"<<endl;
+	}
+	//imshow("original", cvDepthImg);
+	if (cvDepthImg.isContinuous())
+	{	
+		PixelFilter(cvDepthImg.data, rows, cols);
+		imshow("smooth", cvDepthImg);
 	}
 	return cvDepthImg;
 }

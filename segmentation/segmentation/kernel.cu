@@ -14,6 +14,8 @@
 #define ALPHA 1.35
 
 __constant__ int P[8][2] = {{0,-1}, {0,1}, {-1,0}, {1,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}};
+__constant__ int innerBandThreshold = 1;
+__constant__ int outerBandThreshold = 1;
 
 static unsigned char (*d_color)[3] = 0;
 static unsigned char *d_depth = 0;
@@ -30,6 +32,9 @@ static unsigned char *d_boundry = 0;
 //Optical Flow
 static unsigned char *new_depth = 0;
 static unsigned char *new_states = 0;
+//KinectDriver
+static uchar *k_depth = 0;
+static uchar *s_depth = 0;
 
 __device__ float CalDistance(const unsigned char a[3], const unsigned char b[3])
 {
@@ -75,6 +80,8 @@ __global__ void BoundryKernel(const unsigned char *states, unsigned char *boundr
 __global__ void LoadNextKernel(unsigned char *states, const unsigned char *old_states, const unsigned char *depth, const unsigned char *old_depth, cv::gpu::PtrStep<float> flow_x, cv::gpu::PtrStep<float> flow_y, int rows, int cols);
 
 __global__ void LoadNextUpdateKernel(unsigned char *states, int rows, int cols);
+
+__global__ void PixelFilterKernel(uchar *s_depth, uchar *depth, int rows, int cols);
 
 cudaError_t CudaSetup(size_t rows, size_t cols)
 {
@@ -180,6 +187,13 @@ cudaError_t CudaSetup(size_t rows, size_t cols)
 		goto Error;	
 	}
 
+	cudaStatus = cudaMalloc(&k_depth, size);
+	cudaStatus = cudaMalloc(&s_depth, size);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc PixelFilter failed!");
+		goto Error;	
+	}
+
 	return cudaStatus;
 
 Error:
@@ -203,6 +217,8 @@ void CudaRelease()
 	if (cpu_sum) free(cpu_sum);
 	if (new_depth) cudaFree(new_depth);
 	if (new_states) cudaFree(new_states);
+	if (k_depth) cudaFree(k_depth);
+	if (s_depth) cudaFree(s_depth);
 
 	d_color = NULL;
 	d_depth = NULL;
@@ -218,6 +234,8 @@ void CudaRelease()
 	cpu_sum = 0;
 	new_depth = NULL;
 	new_states = NULL;
+	k_depth = NULL;
+	s_depth = NULL;
 }
 
 void ComputeDifferenceWithCuda(const unsigned char (*color)[3], 
@@ -342,6 +360,99 @@ void LoadNextFrameWithCuda(unsigned char *states, const unsigned char *depth, cv
 
 	//Copy states to Host(unnecessary)
 	//cudaMemcpy(states, d_states, size, cudaMemcpyDeviceToHost);
+}
+
+void PixelFilter(uchar *depth, int rows, int cols)
+{
+	cudaMemcpy(k_depth, depth, rows * cols, cudaMemcpyHostToDevice);
+
+	//Kernel
+	dim3 block_size(BLOCK_SIZE, BLOCK_SIZE);
+	dim3 grid_size((cols+BLOCK_SIZE-1) / BLOCK_SIZE, (rows+BLOCK_SIZE-1) / BLOCK_SIZE);
+
+	PixelFilterKernel<<<grid_size, block_size>>>(s_depth, k_depth, rows, cols);
+	PixelFilterKernel<<<grid_size, block_size>>>(k_depth, s_depth, rows, cols);
+	PixelFilterKernel<<<grid_size, block_size>>>(s_depth, k_depth, rows, cols);
+
+	cudaMemcpy(depth, s_depth, rows * cols, cudaMemcpyDeviceToHost);
+}
+
+__global__ void PixelFilterKernel(uchar *s_depth, uchar *depth, int rows, int cols)
+{
+	int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int j = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (i < rows && j < cols)
+	{
+		s_depth[i * cols + j] = depth[i * cols + j];
+		if (depth[i * cols + j] == 0)
+		{
+			uchar filterCollection[24][2];
+			int innerBandCount = 0;
+			int outerBandCount = 0;
+
+			int xi, yi, t;
+			for(t = 0; t < 24; t++)
+			{
+				filterCollection[t][0] = 0;
+				filterCollection[t][1] = 0;
+			}
+			for (yi = -2; yi < 3; yi++)
+				for (xi = -2; xi <3; xi++)
+				{
+					if (xi != 0 || yi != 0)
+					{
+						int xSearch = j + xi;
+						int ySearch = i + yi;
+
+						if (xSearch >= 0 && xSearch < cols &&
+							ySearch >= 0 && ySearch < rows)
+						{
+							uchar d = depth[ySearch * cols + xSearch];
+							if (d != 0)
+							{
+								for (t = 0; t < 24; t++)
+								{
+									if (filterCollection[t][0] == d)
+									{
+										filterCollection[t][1]++;
+										break;
+									}
+									else if (filterCollection[t][0] == 0)
+									{
+										filterCollection[t][0] = d;
+										filterCollection[t][1]++;
+										break;
+									}
+								}
+								if (yi != 2 && yi != -2 && xi != 2 && xi != -2)
+									innerBandCount++;
+								else
+									outerBandCount++;
+							}
+						}
+					}
+				}
+			if (innerBandCount >= innerBandThreshold || outerBandCount >= outerBandThreshold)
+			{
+				uchar frequency = 0;
+				uchar d = 0;
+
+				for (t = 0; t < 24; t++)
+				{
+					if (filterCollection[t][0] == 0)
+						break;
+					if (filterCollection[t][1] > frequency)
+					{
+						d = filterCollection[t][0];
+						frequency = filterCollection[t][1];
+					}
+				}
+
+				s_depth[i * cols + j] = d;
+			}
+		}
+	}
 }
 
 __global__ void DifferenceKernel(const unsigned char (*color)[3], 
